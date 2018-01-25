@@ -1,0 +1,72 @@
+-esym(755, VLIST_*)     // Global macro not ref.
+-esym(755, VSLIST_*)
+-esym(755, VSTAILQ_*)
+-esym(755, VTAILQ_*)
+-esym(755, CAST_OBJ*)
+-esym(755, CHECK_OBJ*)
+-esym(755, NEEDLESS_RETURN)
+-esym(755, VALID_OBJ)
+-esym(755, bprintf)
+-esym(755, XXXAN)
+-esym(755, XXXAZ)
+-esym(755, INCOMPL)
+-esym(755, INIT_OBJ)
+-esym(755, REPLACE)
+-esym(769, vas_e::*)
+
+-sem(VAS_Fail, r_no)            // does not return
+-emacro(506, assert)            // constant value boolean
+-emacro(827, assert)            // loop not reachable
+-emacro(774, assert)            // boolean always true
+-emacro(731, assert)            // boolean arg to eq/non-eq
+-emacro(731, xxxassert)         // arg to eq/non-eq
+-emacro(527, WRONG)             // unreachable code
+-emacro(774, VALID_OBJ)         // boolean always true
+
+-emacro(779, REPLACE)             // string constant !=
+-emacro(774, REPLACE)             // if(bool) always true
+-emacro(506, REPLACE)             // const bool
+
+-esym(534, printf)
+-esym(534, fflush)
+-esym(534, fprintf)
+-esym(534, memset)
+-esym(534, memcpy)
+-esym(534, memmove)
+-esym(534, strlcpy)
+-esym(534, strcat)
+-esym(534, fputc)
+-esym(759, VSB_*)		// Could be made static
+-esym(714, VSB_*)		// Not referenced
+-esym(765, VSB_*)		// could be made static
+
+-esym(534, VSB_bcat)
+-esym(534, VSB_putc)
+-esym(534, VSB_cat)
+-esym(534, VSB_printf)
+-esym(534, VSB_vprintf)
+
+-emacro((826), VTAILQ_PREV)	// Suspicious pointer-to-pointer conversion
+-emacro((826), VTAILQ_LAST)	// Suspicious pointer-to-pointer conversion
+				// (area too small)
+-emacro(740, VTAILQ_PREV)	// Unusual pointer cast
+				// (incompatible indirect types)
+-emacro(740, VTAILQ_LAST)	// Unusual pointer cast
+				// (incompatible indirect types)
+-emacro(506, VTAILQ_FOREACH_SAFE) // Const boolean
+
+
+
+///////////////////////////////////////////////////////////////////////
+-sem(config_destroy, custodial(1))
+///////////////////////////////////////////////////////////////////////
+
+-e747   // Significant prototype coercion (___) ___ to ___
+-e712   // Loss of precision (___) (___ to ___)
+-e732   // Loss of sign (___) (___ to ___)
+-e726	// Extraneous comma ignored
+-e663	// Suspicious array to pointer conversion
+-e737	// Loss of sign in promotion from int to unsigned long
+-e716	// while(1) ...
+-e728	// (static var) not explicitly init
+-e703	// shift left signed quant (long)

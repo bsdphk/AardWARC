@@ -1,0 +1,5 @@
+.depend*
+*.o
+aardwarc
+aardwarc.debug
+aardwarc.full
