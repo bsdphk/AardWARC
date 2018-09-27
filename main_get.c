@@ -58,6 +58,7 @@ struct get {
 	uintmax_t		len;
 	struct SHA256Context	sha256[1];
 	FILE			*dst;
+	int			zip;
 };
 
 static int __match_proto__(byte_iter_f)
@@ -67,7 +68,8 @@ get_iter(void *priv, const void *ptr, ssize_t len)
 
 	CAST_OBJ_NOTNULL(gp, priv, GET_MAGIC);
 	assert(len == (ssize_t)fwrite(ptr, 1, len, gp->dst));
-	SHA256_Update(gp->sha256, ptr, len);
+	if (!gp->zip)
+		SHA256_Update(gp->sha256, ptr, len);
 	gp->len += len;
 	return (0);
 }
@@ -86,10 +88,11 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	char buf[32];
 	int quiet = 0;
 	const char *of = NULL;
+	int zip = 0;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	while ((ch = getopt(argc, argv, "ho:q")) != -1) {
+	while ((ch = getopt(argc, argv, "ho:q:z")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_get(a0, a00, NULL);
@@ -99,6 +102,9 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			break;
 		case 'q':
 			quiet = !quiet;
+			break;
+		case 'z':
+			zip = !zip;
 			break;
 		default:
 			usage_get(a0, a00, "Unknown option error.");
@@ -116,6 +122,7 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 
 	ALLOC_OBJ(gp, GET_MAGIC);
 	AN(gp);
+	gp->zip = zip;
 	SHA256_Init(gp->sha256);
 
 	if (of != NULL)
@@ -144,26 +151,28 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			fprintf(stdout, "%s", VSB_data(vsb));
 	}
 
-	GetJob_Iter(gj, get_iter, gp, 0);
+	GetJob_Iter(gj, get_iter, gp, zip);
 
 	dig = SHA256_End(gp->sha256, NULL);
 	AN(dig);
 
-	p = Header_Get(hdr, "WARC-Payload-Digest");
-	if (p == NULL)
-		p = Header_Get(hdr, "WARC-Block-Digest");
-	AN(p);
-	assert(!memcmp(p, "sha256:", 7));
-	p += 7;
-	assert(!strncmp(p, dig, aa->id_size));
+	if (!zip) {
+		p = Header_Get(hdr, "WARC-Payload-Digest");
+		if (p == NULL)
+			p = Header_Get(hdr, "WARC-Block-Digest");
+		AN(p);
+		assert(!memcmp(p, "sha256:", 7));
+		p += 7;
+		assert(!strncmp(p, dig, aa->id_size));
 
-	hdr = GetJob_Header(gj, 0);
-	p = Header_Get(hdr, "WARC-Segment-Total-Length");
-	if (p == NULL)
-		p = Header_Get(hdr, "Content-Length");
-	AN(p);
-	bprintf(buf, "%ju", (uintmax_t)gp->len);
-	assert(!strcmp(p, buf));
+		hdr = GetJob_Header(gj, 0);
+		p = Header_Get(hdr, "WARC-Segment-Total-Length");
+		if (p == NULL)
+			p = Header_Get(hdr, "Content-Length");
+		AN(p);
+		bprintf(buf, "%ju", (uintmax_t)gp->len);
+		assert(!strcmp(p, buf));
+	}
 
 	FREE_OBJ(gp);
 	GetJob_Delete(&gj);
