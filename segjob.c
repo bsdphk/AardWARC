@@ -55,6 +55,7 @@ struct segment {
 	struct header		*hdr;
 	struct wsilo		*silo;
 	off_t			size;
+	off_t			gzsize;
 };
 
 struct segjob {
@@ -71,6 +72,7 @@ struct segjob {
 	struct SHA256Context	sha256_segment[1];
 
 	off_t			size;
+	off_t			gzsize;
 	z_stream		gz[1];
 	int			gz_flag;
 };
@@ -168,6 +170,7 @@ segjob_add(struct segjob *sj)
 	/* In case this is last segment */
 	if (sj->nseg > 1)
 		i += strlen("WARC-Segment-Total-Length: XXXXXXXXXXXXXXX\r\n");
+		i += strlen("WARC-Segment-Total-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
 
 	Wsilo_Header(sg->silo, sg->hdr, i);
 
@@ -296,6 +299,8 @@ SegJob_Commit(struct segjob *sj)
 		if (sgn == NULL) {
 			Header_Set(sg->hdr, "WARC-Segment-Total-Length",
 			    "%jd", (intmax_t)sj->size);
+			Header_Set(sg->hdr, "WARC-Segment-Total-Length-GZIP",
+			    "%jd", (intmax_t)sj->gzsize);
 			rid = NULL;
 		} else {
 			rid = Header_Get_Id(sgn->hdr);
@@ -390,8 +395,11 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 		    (sj->gz_flag == Z_FINISH && i == Z_STREAM_END));
 
 		len = obuf_len - sj->gz->avail_out;
-		if (len > 0)
+		if (len > 0) {
+			sj->gzsize += len;
+			sg->gzsize += len;
 			AZ(Wsilo_Store(sg->silo, len));
+		}
 
 		/* Finish segment if complete -------------------------*/
 

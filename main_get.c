@@ -58,6 +58,7 @@ struct get {
 	uintmax_t		len;
 	struct SHA256Context	sha256[1];
 	FILE			*dst;
+	FILE			*hdr;
 	int			zip;
 };
 
@@ -82,7 +83,7 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	struct vsb *vsb;
 	struct getjob *gj;
 	struct get *gp;
-	const struct header *hdr;
+	const struct header *hdr1, *hdr9;
 	char *dig;
 	const char *p;
 	char buf[32];
@@ -125,10 +126,13 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	gp->zip = zip;
 	SHA256_Init(gp->sha256);
 
-	if (of != NULL)
+	if (of != NULL) {
 		gp->dst = fopen(of, "w");
-	else
+		gp->hdr = stdout;
+	} else {
 		gp->dst = stdout;
+		gp->hdr = stderr;
+	}
 
 	vsb = VSB_new_auto();
 	AN(vsb);
@@ -140,15 +144,14 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		exit (1);
 	}
 	VSB_delete(vsb);
-	hdr = GetJob_Header(gj, 1);
-	AN(hdr);
+	hdr1 = GetJob_Header(gj, 1);
+	AN(hdr1);
+	hdr9 = GetJob_Header(gj, 0);
+	AN(hdr9);
 	if (!quiet) {
-		vsb = Header_Serialize(hdr, -1);
+		vsb = GetJob_Headers(gj);
 		AZ(VSB_finish(vsb));
-		if (of == NULL)
-			fprintf(stderr, "%s", VSB_data(vsb));
-		else
-			fprintf(stdout, "%s", VSB_data(vsb));
+		fprintf(gp->hdr, "%s", VSB_data(vsb));
 	}
 
 	GetJob_Iter(gj, get_iter, gp, zip);
@@ -157,18 +160,17 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	AN(dig);
 
 	if (!zip) {
-		p = Header_Get(hdr, "WARC-Payload-Digest");
+		p = Header_Get(hdr1, "WARC-Payload-Digest");
 		if (p == NULL)
-			p = Header_Get(hdr, "WARC-Block-Digest");
+			p = Header_Get(hdr1, "WARC-Block-Digest");
 		AN(p);
 		assert(!memcmp(p, "sha256:", 7));
 		p += 7;
 		assert(!strncmp(p, dig, aa->id_size));
 
-		hdr = GetJob_Header(gj, 0);
-		p = Header_Get(hdr, "WARC-Segment-Total-Length");
+		p = Header_Get(hdr9, "WARC-Segment-Total-Length");
 		if (p == NULL)
-			p = Header_Get(hdr, "Content-Length");
+			p = Header_Get(hdr9, "Content-Length");
 		AN(p);
 		bprintf(buf, "%ju", (uintmax_t)gp->len);
 		assert(!strcmp(p, buf));

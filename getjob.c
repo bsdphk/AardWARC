@@ -250,6 +250,7 @@ GetJob_TotalLength(const struct getjob *gj, int gzip)
 
 	CHECK_OBJ_NOTNULL(gj, GETJOB_MAGIC);
 
+	// XXX: ... also available in headers in last segment.
 	VTAILQ_FOREACH(gjs, &gj->segs, list) {
 		if (gzip)
 			im = Header_Get_Number(gjs->hdr, "Content-Length-GZIP");
@@ -272,4 +273,45 @@ GetJob_IsSegmented(const struct getjob *gj)
 	if (VTAILQ_NEXT(gjs, list) == NULL)
 		return (0);
 	return (1);
+}
+
+struct vsb *
+GetJob_Headers(const struct getjob *gj)
+{
+	struct getjobseg *gjs, *gjl;
+	struct header *hdr;
+	struct vsb *vsb;
+	const char *p;
+
+	CHECK_OBJ_NOTNULL(gj, GETJOB_MAGIC);
+
+	gjs = VTAILQ_FIRST(&gj->segs);
+	AN(gjs);
+	gjl = VTAILQ_LAST(&gj->segs, getjobseg_head);
+	AN(gjl);
+
+	if (gjs == gjl) {
+		vsb = Header_Serialize(gjs->hdr, -1);
+	} else {
+		// Move headers around to make segmentation less painful
+
+		hdr = Header_Clone(gjs->hdr);
+		AN(hdr);
+
+		p = Header_Get(gjl->hdr, "WARC-Segment-Total-Length");
+		AN(p);
+		Header_Set(hdr, "Content-Length", "%s", p);
+
+		p = Header_Get(gjl->hdr, "WARC-Segment-Total-Length-GZIP");
+		AN(p);
+		Header_Set(hdr, "Content-Length-GZIP", "%s", p);
+
+		p = Header_Get(gjs->hdr, "WARC-Payload-Digest");
+		AN(p);
+		Header_Set(hdr, "WARC-Block-Digest", "%s", p);
+
+		vsb = Header_Serialize(hdr, -1);
+		Header_Delete(&hdr);
+	}
+	return (vsb);
 }

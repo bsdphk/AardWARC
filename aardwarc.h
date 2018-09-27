@@ -93,6 +93,7 @@ void GetJob_Iter(const struct getjob *, byte_iter_f *func, void *priv,
     int gzip);
 off_t GetJob_TotalLength(const struct getjob *, int gzip);
 int GetJob_IsSegmented(const struct getjob *);
+struct vsb *GetJob_Headers(const struct getjob *);
 
 /* gzip.c */
 
