@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -e
+
+AA=../aardwarc
+ADIR=`pwd`/_test
+AXEC="${AA} -c ${ADIR}/aardwarc.conf"
+
+new_aardwarc() (
+	rm -rf ${ADIR}
+	mkdir -p ${ADIR}
+
+	(
+	echo "WARC-Record-ID:"
+	echo "		file://`pwd`/$$/ 	128"
+	echo ""
+	echo "warcinfo.body:"
+	echo "	description	http://github/bsdphk/Aardwarc testrun"
+	echo "	format		WARC file version 1.0"
+	echo "	conformsTo	ISO-28500"
+	echo ""
+	echo "silo.directory:"
+	echo "		${ADIR}/"
+	echo ""
+	echo "silo.max_size:"
+	echo "		15k"
+	echo ""
+	echo "silo.basename:"
+	echo "		%08u.warc.gz"
+	echo ""
+	echo "resource.mime-types:"
+	echo "		application/octet-stream"
+	echo "		text/plain"
+	echo ""
+	echo "metadata.mime-types:"
+	echo "		text/plain"
+	) > ${ADIR}/aardwarc.conf
+
+)
