@@ -85,9 +85,14 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	wi->body = VSB_new_auto();
 	AN(wi->body);
 	AZ(Config_Iter(aa->cfg, "warcinfo.body", wi, c_iter));
-	if (!wi->sw_flag)
-		VSB_printf(wi->body, "software: %s\r\n",
-		    "aardWARC development version");
+	if (!wi->sw_flag) {
+		VSB_printf(wi->body, "software: %s",
+		    "https://github.com/bsdphk/AardWARC");
+#ifdef GITREV
+		VSB_printf(wi->body, " (%s)", GITREV);
+#endif
+		VSB_printf(wi->body, "\r\n");
+	}
 	AZ(VSB_finish(wi->body));
 
 	/* Assemble headers, now we know C-L from body */
@@ -100,7 +105,7 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	Header_Set(wi->hdr, "Content-Length", "%zd", VSB_len(wi->body));
 
 	p = SHA256_Data(VSB_data(wi->body), VSB_len(wi->body) - 4, NULL);
-	Header_Set(wi->hdr, "WARC-record-digest", "sha256:%s", p);
+	Header_Set(wi->hdr, "WARC-Block-Digest", "sha256:%s", p);
 
 	Header_Set(wi->hdr, "WARC-Filename", aa->silo_basename, silono);
 	r = Header_Get(wi->hdr, "WARC-Filename");

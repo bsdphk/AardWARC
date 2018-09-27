@@ -34,7 +34,7 @@ LDADD	+=	-lmd
 LDADD	+=	-lm
 LDADD	+=	-lz
 
-CFLAGS	+=	-O0 -g
+CFLAGS	+=	-O0 -g -DGITREV=`git log -n 1 '--format=format:"%h"'`
 
 WARNS	?=	6
 
