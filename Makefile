@@ -42,6 +42,8 @@ CLEANFILES	+=	*.gcov *.gcda *.gcno
 
 MK_MAN	=	no
 
+DESTDIR	?=	/usr/local/bin
+
 .include <bsd.prog.mk>
 
 flint:
