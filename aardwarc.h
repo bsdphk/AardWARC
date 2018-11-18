@@ -116,6 +116,10 @@ void Header_Set_Ref(struct header *, const char *name, const char *ref);
 struct header *Header_Parse(const struct aardwarc *, char *);
 const char *Header_Get(const struct header *, const char *name);
 
+/* ident.c */
+
+void Ident_Create(const struct aardwarc *, struct header *, const char *);
+
 /* index.c */
 
 void IDX_Insert(const struct aardwarc *aa, const char *key, uint32_t flags,

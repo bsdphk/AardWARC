@@ -3,6 +3,7 @@ SRCS	+=	config.c
 SRCS	+=	getjob.c
 SRCS	+=	gzip.c
 SRCS	+=	header.c
+SRCS	+=	ident.c
 SRCS	+=	index.c
 SRCS	+=	main.c
 SRCS	+=	main_audit.c

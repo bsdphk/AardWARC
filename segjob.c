@@ -226,10 +226,9 @@ SegJob_Commit(struct segjob *sj)
 {
 	char *dig, *id;
 	struct segment *sg, *sgn;
-	const char *rid, *typ, *ref;
+	const char *rid;
 	struct getjob *gj;
 	struct vsb *vsb;
-	struct SHA256Context sha256[1];
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
 	SegJob_Feed(sj, "", 0);
@@ -242,33 +241,11 @@ SegJob_Commit(struct segjob *sj)
 	if (sj->nseg > 1)
 		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", dig);
 
-	typ = Header_Get(sg->hdr, "WARC-Type");
-	AN(typ);
-	if (!strcmp(typ, "resource")) {
-		/* We use the payload digest as ID */
-	} else if (!strcmp(typ, "metadata")) {
-		/* ID=SHA256(reference_id + "\n" + SHA256(body) + "\n") */
-		SHA256_Init(sha256);
-		ref = Header_Get(sg->hdr, "WARC-Refers-To");
-		AN(ref);
-		SHA256_Update(sha256, ref, strlen(ref));
-		SHA256_Update(sha256, "\n", 1);
-		SHA256_Update(sha256, dig, strlen(dig));
-		SHA256_Update(sha256, "\n", 1);
-		REPLACE(dig, NULL);
-		dig = SHA256_End(sha256, NULL);
-		AN(dig);
-	} else {
-		WRONG("Unknown WARC-Type");
-	}
-
-	dig[sj->aa->id_size] = '\0';
-
-	Header_Set_Id(sg->hdr, dig);
+	Ident_Create(sj->aa, sg->hdr, dig);
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VSB_printf(vsb, "%s%s", sj->aa->prefix, dig);
+	VSB_printf(vsb, "%s%s", sj->aa->prefix, Header_Get_Id(sg->hdr));
 	AZ(VSB_finish(vsb));
 	id = strdup(VSB_data(vsb));
 	AN(id);
@@ -282,7 +259,6 @@ SegJob_Commit(struct segjob *sj)
 		segjob_destroy(sj);
 		return (id);
 	}
-
 
 	if (sj->nseg == 1) {
 		Header_Set(sg->hdr, "Content-Length",

@@ -35,6 +35,7 @@
 -esym(534, memmove)
 -esym(534, strlcpy)
 -esym(534, strcat)
+-esym(534, strcpy)
 -esym(534, fputc)
 -esym(759, VSB_*)		// Could be made static
 -esym(714, VSB_*)		// Not referenced
