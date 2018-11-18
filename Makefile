@@ -53,3 +53,5 @@ flint:
 		flint.lnt \
 		${SRCS}
 
+test:	${PROG}
+	cd tests && sh test00.sh
