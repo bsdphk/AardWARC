@@ -56,10 +56,10 @@ c_iter(void *priv, const char *name, const char *arg)
 	CAST_OBJ_NOTNULL(wi, priv, WARCINFO_MAGIC);
 	AN(wi->body);
 	VSB_cat(wi->body, name);
-	VSB_cat(wi->body, ": ");
+	VSB_cat(wi->body, " ");
 	VSB_cat(wi->body, arg);
 	VSB_cat(wi->body, "\r\n");
-	if (!strcasecmp(name, "software"))
+	if (!strcasecmp(name, "software:"))
 		wi->sw_flag = 1;
 	return (0);
 }

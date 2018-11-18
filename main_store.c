@@ -210,6 +210,7 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	Header_Set(hdr, "WARC-Type", "%s", wt);
 
 	if (ref != NULL) {
+		assert(wt == WT_METADATA);
 		vsb = VSB_new_auto();
 		AN(vsb);
 		gj = GetJob_New(aa, ref, vsb);

@@ -159,13 +159,16 @@ segjob_add(struct segjob *sj)
 	/* If we segment, first segment will get a number */
 	if (sj->nseg == 1) {
 		i += strlen("WARC-Segment-Number: 1\r\n");
-		i += strlen("WARC-Payload-Digest: sha256:2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\r\n");
+		i += strlen("WARC-Payload-Digest: sha256:");
+		i += SHA256_BLOCK_LENGTH;
+		i += strlen("\r\n");
 	}
 
 	/* All segments get a content length header */
 	i += strlen("Content-Length: XXXXXXXXXXXXXXX\r\n");
 
 	/* All segments get a gzip'ed content length header */
+	i += strlen("Content-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
 
 	/* In case this is last segment */
 	if (sj->nseg > 1) {
