@@ -299,7 +299,8 @@ Header_Set_Ref(struct header *hdr, const char *name, const char *ref)
 struct header *
 Header_Parse(const struct aardwarc *aa, char *p)
 {
-	const char *q0 = "WARC/1.1\r\nWARC-Record-ID: <";
+	const char *q10 = "WARC/1.0\r\nWARC-Record-ID: <";
+	const char *q11 = "WARC/1.1\r\nWARC-Record-ID: <";
 	char *q, *r, *s;
 	struct header *hdr;
 
@@ -311,7 +312,7 @@ Header_Parse(const struct aardwarc *aa, char *p)
 	VTAILQ_INIT(&hdr->hfields);
 	hdr->aa = aa;
 
-	AZ(memcmp(p, q0, strlen(q0)));
+	assert(!memcmp(p, q10, strlen(q10)) || !memcmp(p, q11, strlen(q11)));
 	p = strchr(p, '\n');
 	AN(p);
 	for (p++; *p != '\0'; p = q) {
