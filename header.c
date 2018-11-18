@@ -210,7 +210,7 @@ Header_Serialize(const struct header *hdr, int level)
 	vsb = VSB_new_auto();
 	AN(vsb);
 
-	VSB_cat(vsb, "WARC/1.0\r\n");
+	VSB_cat(vsb, "WARC/1.1\r\n");
 
 	VSB_cat(vsb, "WARC-Record-ID: <");
 	VSB_cat(vsb, hdr->aa->prefix);
@@ -299,7 +299,7 @@ Header_Set_Ref(struct header *hdr, const char *name, const char *ref)
 struct header *
 Header_Parse(const struct aardwarc *aa, char *p)
 {
-	const char *q0 = "WARC/1.0\r\nWARC-Record-ID: <";
+	const char *q0 = "WARC/1.1\r\nWARC-Record-ID: <";
 	char *q, *r, *s;
 	struct header *hdr;
 
