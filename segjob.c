@@ -168,9 +168,12 @@ segjob_add(struct segjob *sj)
 	/* All segments get a gzip'ed content length header */
 
 	/* In case this is last segment */
-	if (sj->nseg > 1)
-		i += strlen("WARC-Segment-Total-Length: XXXXXXXXXXXXXXX\r\n");
-		i += strlen("WARC-Segment-Total-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
+	if (sj->nseg > 1) {
+		i += strlen(
+		    "WARC-Segment-Total-Length: XXXXXXXXXXXXXXX\r\n");
+		i += strlen(
+		    "WARC-Segment-Total-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
+	}
 
 	Wsilo_Header(sg->silo, sg->hdr, i);
 
