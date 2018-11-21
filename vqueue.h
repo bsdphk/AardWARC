@@ -233,7 +233,7 @@ struct {								\
 #define	VSTAILQ_FIRST(head)	((head)->vstqh_first)
 
 #define	VSTAILQ_FOREACH(var, head, field)				\
-	for((var) = VSTAILQ_FIRST((head));				\
+	for ((var) = VSTAILQ_FIRST((head));				\
 	   (var);							\
 	   (var) = VSTAILQ_NEXT((var), field))
 
@@ -435,7 +435,7 @@ struct {								\
 	struct type *vtqe_next;	/* next element */			\
 	struct type **vtqe_prev;	/* address of previous next element */\
 	TRACEBUF							\
-} /*lint -e(18) */
+}
 
 /*
  * Tail queue functions.

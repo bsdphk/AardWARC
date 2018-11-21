@@ -35,8 +35,7 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
 #include <string.h>
 
 #include "vdef.h"
-
-#include "vas.h"
+#include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "vsb.h"
 
 #define	KASSERT(e, m)		assert(e)
@@ -50,8 +49,8 @@ __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
  */
 #define	VSB_ISDYNAMIC(s)	((s)->s_flags & VSB_DYNAMIC)
 #define	VSB_ISDYNSTRUCT(s)	((s)->s_flags & VSB_DYNSTRUCT)
-#define	VSB_HASROOM(s)		((s)->s_len < (s)->s_size - 1)
-#define	VSB_FREESPACE(s)	((s)->s_size - ((s)->s_len + 1))
+#define	VSB_HASROOM(s)		((s)->s_len < (s)->s_size - 1L)
+#define	VSB_FREESPACE(s)	((s)->s_size - ((s)->s_len + 1L))
 #define	VSB_CANEXTEND(s)	((s)->s_flags & VSB_AUTOEXTEND)
 
 /*
@@ -113,10 +112,10 @@ CTASSERT(powerof2(VSB_MAXEXTENDSIZE));
 CTASSERT(powerof2(VSB_MAXEXTENDINCR));
 #endif
 
-static int
-VSB_extendsize(int size)
+static ssize_t
+VSB_extendsize(ssize_t size)
 {
-	int newsize;
+	ssize_t newsize;
 
 	if (size < (int)VSB_MAXEXTENDSIZE) {
 		newsize = VSB_MINEXTENDSIZE;
@@ -132,23 +131,25 @@ VSB_extendsize(int size)
 /*
  * Extend an vsb.
  */
-static int
-VSB_extend(struct vsb *s, int addlen)
+static ssize_t
+VSB_extend(struct vsb *s, ssize_t addlen)
 {
 	char *newbuf;
-	int newsize;
+	ssize_t newsize;
 
 	if (!VSB_CANEXTEND(s))
 		return (-1);
 	newsize = VSB_extendsize(s->s_size + addlen);
-	newbuf = SBMALLOC(newsize);
+	if (VSB_ISDYNAMIC(s))
+		newbuf = realloc(s->s_buf, newsize);
+	else
+		newbuf = SBMALLOC(newsize);
 	if (newbuf == NULL)
 		return (-1);
-	memcpy(newbuf, s->s_buf, s->s_size);
-	if (VSB_ISDYNAMIC(s))
-		SBFREE(s->s_buf);
-	else
+	if (!VSB_ISDYNAMIC(s)) {
+		memcpy(newbuf, s->s_buf, s->s_size);
 		VSB_SETFLAG(s, VSB_DYNAMIC);
+	}
 	s->s_buf = newbuf;
 	s->s_size = newsize;
 	return (0);
@@ -275,22 +276,25 @@ VSB_put_byte(struct vsb *s, int c)
  * Append a byte string to an vsb.
  */
 int
-VSB_bcat(struct vsb *s, const void *buf, size_t len)
+VSB_bcat(struct vsb *s, const void *buf, ssize_t len)
 {
-	const char *str = buf;
-	const char *end = str + len;
-
 	assert_VSB_integrity(s);
 	assert_VSB_state(s, 0);
 
+	assert(len >= 0);
 	if (s->s_error != 0)
 		return (-1);
+	if (len == 0)
+		return (0);
 	_vsb_indent(s);
-	for (; str < end; str++) {
-		VSB_put_byte(s, *str);
+	if (len > VSB_FREESPACE(s)) {
+		if (VSB_extend(s, len - VSB_FREESPACE(s)) < 0)
+			s->s_error = ENOMEM;
 		if (s->s_error != 0)
 			return (-1);
 	}
+	memcpy(s->s_buf + s->s_len, buf, len);
+	s->s_len += len;
 	return (0);
 }
 
@@ -350,6 +354,10 @@ VSB_vprintf(struct vsb *s, const char *fmt, va_list ap)
 		len = vsnprintf(&s->s_buf[s->s_len], VSB_FREESPACE(s) + 1,
 		    fmt, ap_copy);
 		va_end(ap_copy);
+		if (len < 0) {
+			s->s_error = errno;
+			return (-1);
+		}
 	} while (len > VSB_FREESPACE(s) &&
 	    VSB_extend(s, len - VSB_FREESPACE(s)) == 0);
 
@@ -479,18 +487,52 @@ VSB_delete(struct vsb *s)
 		SBFREE(s);
 }
 
+void
+VSB_destroy(struct vsb **s)
+{
+	VSB_delete(*s);
+	*s = NULL;
+}
+
 /*
  * Quote a string
  */
 void
-VSB_quote(struct vsb *s, const char *p, int len, int how)
+VSB_quote_pfx(struct vsb *s, const char *pfx, const void *v, int len, int how)
 {
+	const char *p;
 	const char *q;
 	int quote = 0;
+	int nl = 0;
+	const unsigned char *u, *w;
 
-	(void)how;	/* For future enhancements */
+	assert(v != NULL);
 	if (len == -1)
-		len = strlen(p);
+		len = strlen(v);
+
+	if (len == 0 && (how & VSB_QUOTE_CSTR)) {
+		VSB_printf(s, "%s\"\"", pfx);
+		return;
+	} else if (len == 0)
+		return;
+
+	VSB_cat(s, pfx);
+
+	if (how & VSB_QUOTE_HEX) {
+		u = v;
+		for (w = u; w < u + len; w++)
+			if (*w != 0x00)
+				break;
+		VSB_printf(s, "0x");
+		if (w == u + len && len > 4) {
+			VSB_printf(s, "0...0");
+		} else {
+			for (w = u; w < u + len; w++)
+				VSB_printf(s, "%02x", *w);
+		}
+		return;
+	}
+	p = v;
 
 	for (q = p; q < p + len; q++) {
 		if (!isgraph(*q) || *q == '"' || *q == '\\') {
@@ -498,23 +540,45 @@ VSB_quote(struct vsb *s, const char *p, int len, int how)
 			break;
 		}
 	}
-	if (!quote) {
+	if (!quote && !(how & (VSB_QUOTE_JSON|VSB_QUOTE_CSTR))) {
 		(void)VSB_bcat(s, p, len);
+		if ((how & (VSB_QUOTE_UNSAFE|VSB_QUOTE_NONL)) &&
+		    p[len-1] != '\n')
+			(void)VSB_putc(s, '\n');
 		return;
 	}
-	(void)VSB_putc(s, '"');
+
+	if (how & VSB_QUOTE_CSTR)
+		(void)VSB_putc(s, '"');
+
 	for (q = p; q < p + len; q++) {
+		if (nl)
+			VSB_cat(s, pfx);
+		nl = 0;
 		switch (*q) {
+		case '?':
+			if (how & VSB_QUOTE_CSTR)
+				(void)VSB_putc(s, '\\');
+			(void)VSB_putc(s, *q);
+			break;
 		case ' ':
 			(void)VSB_putc(s, *q);
 			break;
 		case '\\':
 		case '"':
-			(void)VSB_putc(s, '\\');
+			if (!(how & VSB_QUOTE_UNSAFE))
+				(void)VSB_putc(s, '\\');
 			(void)VSB_putc(s, *q);
 			break;
 		case '\n':
-			(void)VSB_cat(s, "\\n");
+			if (how & VSB_QUOTE_CSTR) {
+				(void)VSB_printf(s, "\\n\"\n%s\t\"", pfx);
+			} else if (how & (VSB_QUOTE_NONL|VSB_QUOTE_UNSAFE)) {
+				(void)VSB_printf(s, "\n");
+				nl = 1;
+			} else {
+				(void)VSB_printf(s, "\\n");
+			}
 			break;
 		case '\r':
 			(void)VSB_cat(s, "\\r");
@@ -522,15 +586,30 @@ VSB_quote(struct vsb *s, const char *p, int len, int how)
 		case '\t':
 			(void)VSB_cat(s, "\\t");
 			break;
+		case '\v':
+			(void)VSB_cat(s, "\\v");
+			break;
 		default:
+			/* XXX: Implement VSB_QUOTE_JSON */
 			if (isgraph(*q))
 				(void)VSB_putc(s, *q);
+			else if (how & VSB_QUOTE_ESCHEX)
+				(void)VSB_printf(s, "\\x%02x", *q & 0xff);
 			else
-				(void)VSB_printf(s, "\\%o", *q & 0xff);
+				(void)VSB_printf(s, "\\%03o", *q & 0xff);
 			break;
 		}
 	}
-	(void)VSB_putc(s, '"');
+	if (how & VSB_QUOTE_CSTR)
+		(void)VSB_putc(s, '"');
+	if ((how & (VSB_QUOTE_NONL|VSB_QUOTE_UNSAFE)) && !nl)
+		(void)VSB_putc(s, '\n');
+}
+
+void
+VSB_quote(struct vsb *s, const void *v, int len, int how)
+{
+	VSB_quote_pfx(s, "", v, len, how);
 }
 
 /*

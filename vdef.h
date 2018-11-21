@@ -1,7 +1,7 @@
 /*-
  * Copyright (c) 2006 Verdens Gang AS
  * Copyright (c) 2012 Fastly Inc
- * Copyright (c) 2006-2014 Varnish Software AS
+ * Copyright (c) 2006-2015 Varnish Software AS
  * All rights reserved.
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
@@ -30,36 +30,83 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * Names of the form "v_[a-z_]*_" is reserved for this file.
+ *
+ * This file should always be the first non <...> include in a .c file.
  */
 
-#ifndef VDEF_H_INCLUDED
+#ifdef VDEF_H_INCLUDED
+#  error "vdef.h included multiple times"
+#endif
 #define VDEF_H_INCLUDED
 
-#include <stdint.h>		// To get __printflike and [u]int%d_t
+/* Safe printf into a fixed-size buffer */
+#define bprintf(buf, fmt, ...)						\
+	do {								\
+		int ibprintf;						\
+		ibprintf = snprintf(buf, sizeof buf, fmt, __VA_ARGS__);	\
+		assert(ibprintf >= 0 && ibprintf < (int)sizeof buf);	\
+	} while (0)
 
-#ifndef __GNUC_PREREQ
+/* Safe printf into a fixed-size buffer */
+#define vbprintf(buf, fmt, ap)						\
+	do {								\
+		int ivbprintf;						\
+		ivbprintf = vsnprintf(buf, sizeof buf, fmt, ap);	\
+		assert(ivbprintf >= 0 && ivbprintf < (int)sizeof buf);	\
+	} while (0)
+
+/* Close and discard filedescriptor */
+#define closefd(fdp)				\
+	do {					\
+		assert(*(fdp) >= 0);		\
+		AZ(close(*(fdp)));		\
+		*(fdp) = -1;			\
+	} while (0)
+
+#ifndef __GNUC_PREREQ__
 # if defined __GNUC__ && defined __GNUC_MINOR__
-#  define __GNUC_PREREQ(maj, min) \
+#  define __GNUC_PREREQ__(maj, min) \
 	(__GNUC__ > (maj) || (__GNUC__ == (maj) && __GNUC_MINOR__ >= (min)))
 # else
-#  define __GNUC_PREREQ(maj, min) 0
+#  define __GNUC_PREREQ__(maj, min) 0
 # endif
 #endif
 
-#ifdef __printflike
-#  define v_printflike_(f,a) __printflike(f,a)
-#elif __GNUC_PREREQ(2, 95) || defined(__INTEL_COMPILER)
+#if __GNUC_PREREQ__(2, 95) || defined(__INTEL_COMPILER)
 #  define v_printflike_(f,a) __attribute__((format(printf, f, a)))
 #else
 #  define v_printflike_(f,a)
 #endif
 
-/* Safe printf into a fixed-size buffer */
-#define bprintf(buf, fmt, ...)						\
-	do {								\
-		assert(snprintf(buf, sizeof buf, fmt, __VA_ARGS__)	\
-		    < (int)sizeof buf);					\
-	} while (0)
+#define v_noreturn_ __attribute__((__noreturn__))
+
+/*********************************************************************
+ * Pointer alignment magic
+ */
+
+#if defined(__sparc__)
+/* NB: Overbroad test for 32bit userland on 64bit SPARC cpus. */
+#  define PALGN	    (sizeof(double) - 1)	/* size of alignment */
+#else
+#  define PALGN	    (sizeof(void *) - 1)	/* size of alignment */
+#endif
+#define PAOK(p)	    (((uintptr_t)(p) & PALGN) == 0)	/* is aligned */
+#define PRNDDN(p)   ((uintptr_t)(p) & ~PALGN)		/* Round down */
+#define PRNDUP(p)   (((uintptr_t)(p) + PALGN) & ~PALGN)	/* Round up */
+
+/*********************************************************************
+ * To be used as little as possible to wash off const/volatile etc.
+ */
+#define TRUST_ME(ptr)	((void*)(uintptr_t)(ptr))
+
+/**********************************************************************
+ * Generic power-2 rounding macros
+ */
+
+#define PWR2(x)     ((((x)-1UL)&(x))==0)		/* Is a power of two */
+#define RDN2(x, y)  ((x)&(~((uintptr_t)(y)-1UL)))	/* PWR2(y) true */
+#define RUP2(x, y)  (((x)+((y)-1))&(~((uintptr_t)(y)-1UL))) /* PWR2(y) true */
 
 /**********************************************************************
  * FlexeLint and compiler shutuppery
@@ -70,8 +117,22 @@
  * even if that means not const'ing a const'able argument.
  * The typedef should be specified as argument to the macro.
  */
-#define v_matchproto_(xxx)		/*lint -e{818} */
+#define v_matchproto_(xxx)		/*lint --e{818} */
 
-#define NEEDLESS_RETURN(foo)	return (foo)
+/*
+ * State variables may change value before we have considered the
+ * previous value
+ */
+#define v_statevariable_(varname)	varname /*lint -esym(838,varname) */
 
-#endif /* VDEF_H_INCLUDED */
+#ifdef __SUNPRO_C
+#define NEEDLESS(s)		{}
+#else
+#define NEEDLESS(s)		s
+#endif
+
+#if __GNUC_PREREQ__(2, 7)
+#  define v_unused_ __attribute__((__unused__))
+#else
+#  define v_unused_
+#endif

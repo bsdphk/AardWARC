@@ -91,7 +91,7 @@ job_ev(int fd, void *priv, int revents)
 	(void)revents;
 	CAST_OBJ_NOTNULL(jp, priv, JOB_MAGIC);
 
-	i = VLU_Fd(fd, jp->vlu);
+	i = VLU_Fd(jp->vlu, fd);
 	if (i != 0) {
 		proto_del_ev(&jp->ev);
 		(void)jp->func_end(jp);
@@ -139,7 +139,7 @@ job_start(vlu_f *line, job_func *eof, ...)
 	AZ(close(fdo[1]));
 	jp->fd_to = fdi[1];
 	jp->fd_fm = fdo[0];
-	jp->vlu = VLU_New(jp, line, 256);
+	jp->vlu = VLU_New(line, jp, 256);
 	AN(jp->vlu);
 	jp->func_end = eof;
 	jp->ev = proto_add_ev(jp->fd_fm, POLLIN, job_ev, jp);
@@ -160,7 +160,7 @@ job_end(struct job *jp)
 		fprintf(stderr, "Exit status 0x%x\n", st);
 	AZ(st);
 	assert(jp->fd_to == -1);
-	VLU_Destroy(jp->vlu);
+	VLU_Destroy(&jp->vlu);
 	FREE_OBJ(jp);
 }
 

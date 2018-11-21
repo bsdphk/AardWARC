@@ -34,9 +34,10 @@
 
 #include "vdef.h"
 
+#include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
 #include "miniobj.h"
+
 #include "vlu.h"
-#include "vas.h"
 
 struct vlu {
 	unsigned	magic;
@@ -49,7 +50,7 @@ struct vlu {
 };
 
 struct vlu *
-VLU_New(void *priv, vlu_f *func, unsigned bufsize)
+VLU_New(vlu_f *func, void *priv, unsigned bufsize)
 {
 	struct vlu *l;
 
@@ -70,9 +71,13 @@ VLU_New(void *priv, vlu_f *func, unsigned bufsize)
 }
 
 void
-VLU_Destroy(struct vlu *l)
+VLU_Destroy(struct vlu **lp)
 {
+	struct vlu *l;
 
+	AN(lp);
+	l = *lp;
+	*lp = NULL;
 	CHECK_OBJ_NOTNULL(l, LINEUP_MAGIC);
 	free(l->buf);
 	FREE_OBJ(l);
@@ -110,7 +115,7 @@ LineUpProcess(struct vlu *l)
 }
 
 int
-VLU_Fd(int fd, struct vlu *l)
+VLU_Fd(struct vlu *l, int fd)
 {
 	int i;
 
