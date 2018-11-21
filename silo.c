@@ -27,10 +27,10 @@
  *
  */
 
-#include "vdef.h"
-
 #include <errno.h>
 #include <sys/stat.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

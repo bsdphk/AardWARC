@@ -27,8 +27,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <poll.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -37,6 +35,8 @@
 #include <unistd.h>
 #include <sys/endian.h>
 #include <sys/wait.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vlu.h"

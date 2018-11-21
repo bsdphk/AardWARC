@@ -27,8 +27,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -36,6 +34,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/endian.h>
+
+#include "vdef.h"
 
 #include "miniobj.h"
 #include "vsb.h"

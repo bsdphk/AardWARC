@@ -45,8 +45,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <poll.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -54,6 +52,8 @@
 #include <unistd.h>
 #include <sys/endian.h>
 #include <sys/uio.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

@@ -27,8 +27,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +34,8 @@
 
 #define ZLIB_CONST
 #include <zlib.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

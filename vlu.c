@@ -27,12 +27,12 @@
  * a function on each.
  */
 
-#include "vdef.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "vdef.h"
 
 #include "miniobj.h"
 #include "vlu.h"

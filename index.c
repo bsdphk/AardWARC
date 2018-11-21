@@ -128,8 +128,6 @@
  * and one for the number of buckets and other param/versioning.
  */
 
-#include "vdef.h"
-
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -138,6 +136,8 @@
 #include <stdlib.h>
 
 #include <sys/endian.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

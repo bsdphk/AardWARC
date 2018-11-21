@@ -27,12 +27,12 @@
  *
  */
 
-#include "vdef.h"
-
 #include <string.h>
 
 #define ZLIB_CONST
 #include <zlib.h>
+
+#include "vdef.h"
 
 #include "vsb.h"
 #include "vas.h"

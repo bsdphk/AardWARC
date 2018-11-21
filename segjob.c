@@ -27,14 +27,14 @@
  *
  */
 
-#include "vdef.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <sha256.h>
 
 #define ZLIB_CONST
 #include <zlib.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

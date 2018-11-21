@@ -27,11 +27,11 @@
  *
  */
 
-#include "vdef.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "miniobj.h"

@@ -27,14 +27,14 @@
 __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
  */
 
-#include "vdef.h"
-
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"

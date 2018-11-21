@@ -27,12 +27,12 @@
  *
  */
 
-#include "vdef.h"
 
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 
+#include "vdef.h"
 #include "vas.h"
 #include "vsb.h"
 #include "sha256.h"

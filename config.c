@@ -27,8 +27,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -38,8 +36,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "vdef.h"
 #include "miniobj.h"
-
 #include "vas.h"
 
 #include "aardwarc.h"

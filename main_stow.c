@@ -27,8 +27,6 @@
  *
  */
 
-#include "vdef.h"
-
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -42,6 +40,8 @@
 #include <vis.h>
 #include <sys/endian.h>
 #include <sys/wait.h>
+
+#include "vdef.h"
 
 #include "vas.h"
 #include "vsb.h"
