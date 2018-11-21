@@ -28,11 +28,13 @@
  * Deal with numbers with data storage suffix scaling
  */
 
-#include "vdef.h"
-
 #include <ctype.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+#include "vdef.h"
 
 #include "aardwarc.h"
 #include "vas.h"
@@ -140,10 +142,6 @@ VNUM_2bytes(const char *p, uintmax_t *r, uintmax_t rel)
 			break;
 		case 'p': case 'P':
 			fval *= (uintmax_t)1 << 50;
-			++end;
-			break;
-		case 'e': case 'E':
-			fval *= (uintmax_t)1 << 60;
 			++end;
 			break;
 		default:
