@@ -265,7 +265,7 @@ Rsilo_ReadChunk(const struct rsilo *rs, byte_iter_f *func, void *priv)
 
 /* Read a CRNLCRNL separator ------------------------------------------*/
 
-static int __match_proto__(byte_iter_f)
+static int v_matchproto_(byte_iter_f)
 rsilo_iter_crnlcrnl(void *priv, const void *ptr, ssize_t len)
 {
 	/* XXX: Should guard against multiple (and partial?) calls */

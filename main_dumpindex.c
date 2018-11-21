@@ -50,7 +50,7 @@ usage_dumpindex(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t\t -t {metadata|resource|warcinfo}\n");
 }
 
-static int __match_proto__(idx_iter_f)
+static int v_matchproto_(idx_iter_f)
 dumpindex_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
 {
@@ -63,7 +63,7 @@ dumpindex_iter(void *priv, const char *key,
 	return(0);
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_dumpindex(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

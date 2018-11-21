@@ -62,7 +62,7 @@ struct get {
 	int			zip;
 };
 
-static int __match_proto__(byte_iter_f)
+static int v_matchproto_(byte_iter_f)
 get_iter(void *priv, const void *ptr, ssize_t len)
 {
 	struct get *gp;
@@ -75,7 +75,7 @@ get_iter(void *priv, const void *ptr, ssize_t len)
 	return (0);
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

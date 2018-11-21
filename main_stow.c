@@ -215,7 +215,7 @@ mtree_process(struct stow_job *sj)
 	memmove(sj->mtree_buf, b, strlen(b) + 1);
 }
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 mtree_in(int fd, void *priv, int revents)
 {
 	char *p;
@@ -302,7 +302,7 @@ start_mtree(struct stow_job *sj)
 
 /**********************************************************************/
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 diag(int fd, void *priv, int revents)
 {
 	char buf[1024];
@@ -493,7 +493,7 @@ data_resp(struct stow_job *sj, char *p, size_t len)
 	FREE_OBJ(cp);
 }
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 stevedore_in(int fd, void *priv, int revents)
 {
 	uint8_t u[1024];
@@ -543,7 +543,7 @@ stevedore_in(int fd, void *priv, int revents)
 	}
 }
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 stevedore_out(int fd, void *priv, int revents)
 {
 	struct subj *cp;
@@ -664,7 +664,7 @@ usage_stow(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t%s [global options] %s\n", a0, a00);
 }
 
-static int __match_proto__(config_f)
+static int v_matchproto_(config_f)
 arg_iter(void *priv, const char *name, const char *arg)
 {
 	struct stow_job *sj;
@@ -678,7 +678,7 @@ arg_iter(void *priv, const char *name, const char *arg)
 }
 
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_stow(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	const char *a00 = *argv;

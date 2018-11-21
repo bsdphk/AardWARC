@@ -66,7 +66,7 @@ struct getjob {
 	struct getjobseg_head	segs;
 };
 
-static int __match_proto__(idx_iter_f)
+static int v_matchproto_(idx_iter_f)
 getjob_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
 {

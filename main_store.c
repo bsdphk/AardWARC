@@ -88,7 +88,7 @@ usage_store(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t-r WARC-Refers-To: reference\n");
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

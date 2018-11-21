@@ -47,11 +47,11 @@
 #endif
 
 #ifdef __printflike
-#  define __v_printflike(f,a) __printflike(f,a)
+#  define v_printflike_(f,a) __printflike(f,a)
 #elif __GNUC_PREREQ(2, 95) || defined(__INTEL_COMPILER)
-#  define __v_printflike(f,a) __attribute__((format(printf, f, a)))
+#  define v_printflike_(f,a) __attribute__((format(printf, f, a)))
 #else
-#  define __v_printflike(f,a)
+#  define v_printflike_(f,a)
 #endif
 
 /* Safe printf into a fixed-size buffer */
@@ -70,7 +70,7 @@
  * even if that means not const'ing a const'able argument.
  * The typedef should be specified as argument to the macro.
  */
-#define __match_proto__(xxx)		/*lint -e{818} */
+#define v_matchproto_(xxx)		/*lint -e{818} */
 
 #define NEEDLESS_RETURN(foo)	return (foo)
 

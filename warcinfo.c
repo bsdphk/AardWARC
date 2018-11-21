@@ -48,7 +48,7 @@ struct warcinfo {
 	struct vsb		*body;
 };
 
-static int __match_proto__(config_f)
+static int v_matchproto_(config_f)
 c_iter(void *priv, const char *name, const char *arg)
 {
 	struct warcinfo *wi;

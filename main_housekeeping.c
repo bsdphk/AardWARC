@@ -48,7 +48,7 @@ usage_housekeeping(const char *a0, const char *a00, const char *err)
 	    a0, a00);
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_housekeeping(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

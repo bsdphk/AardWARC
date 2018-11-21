@@ -106,7 +106,7 @@ struct header *Header_New(const struct aardwarc *);
 void Header_Delete(struct header **hdp);
 struct header *Header_Clone(const struct header *hd);
 void Header_Set(struct header *, const char *name, const char *val, ...)
-    __v_printflike(3, 4);
+    v_printflike_(3, 4);
 struct vsb *Header_Serialize(const struct header *, int level);
 const char *Header_Get_Id(const struct header *);
 intmax_t Header_Get_Number(const struct header *, const char *);
@@ -151,7 +151,7 @@ const char *IDX_Valid_Id(const struct aardwarc *,
 
 int proto_in(int fd, unsigned *cmd, unsigned *len);
 int proto_out(int fd, unsigned cmd, const void *ptr, size_t len);
-void proto_send_msg(int fd, const char *fmt, ...) __v_printflike(2,3);
+void proto_send_msg(int fd, const char *fmt, ...) v_printflike_(2,3);
 
 typedef void proto_ev_func_f(int fd, void *priv, int revents);
 uintptr_t proto_add_ev(int fd, short events, proto_ev_func_f *func, void *priv);

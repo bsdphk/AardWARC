@@ -119,7 +119,7 @@ try_seg(const struct aardwarc *aa, struct seg *seg)
 		emit_seg(aa, seg2, seg);
 }
 
-static int __match_proto__(idx_iter_f)
+static int v_matchproto_(idx_iter_f)
 reindex_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
 {
@@ -203,7 +203,7 @@ got_seg(const struct aardwarc *aa, const struct header *hdr,
 		try_seg(aa, seg2);
 }
 
-static int __match_proto__(byte_iter_f)
+static int v_matchproto_(byte_iter_f)
 silo_iter(void *priv, const void *fn, ssize_t silono)
 {
 	struct aardwarc *aa;
@@ -278,7 +278,7 @@ usage_reindex(const char *a0, const char *a00, const char *err)
 	//fprintf(stderr, "\t-t {metadata|resource}\n");
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_reindex(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch, retval = 0;

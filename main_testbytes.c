@@ -52,7 +52,7 @@ usage_testbytes(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t-n number of bytes\n");
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main__testbytes(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

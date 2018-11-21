@@ -82,7 +82,7 @@ static void start_filter(void);
 
 /**********************************************************************/
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 job_ev(int fd, void *priv, int revents)
 {
 	int i;
@@ -306,7 +306,7 @@ start_meta(char *ref)
 
 /**********************************************************************/
 
-static void __match_proto__(proto_ev_func_f)
+static void v_matchproto_(proto_ev_func_f)
 input(int fd, void *priv, int revents)
 {
 	uint8_t buf[8192];
@@ -442,7 +442,7 @@ usage_stevedore(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t%s [global options] %s\n", a0, a00);
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_stevedore(const char *a0, struct aardwarc *aa,
     int argc, char **argv)
 {

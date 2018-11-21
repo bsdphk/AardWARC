@@ -49,7 +49,7 @@ usage_byid(const char *a0, const char *a00, const char *err)
 	    a0, a00);
 }
 
-static int __match_proto__(idx_iter_f)
+static int v_matchproto_(idx_iter_f)
 byid_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
 {
@@ -77,7 +77,7 @@ byid_iter(void *priv, const char *key,
 	return(0);
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_byid(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;

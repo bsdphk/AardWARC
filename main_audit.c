@@ -54,7 +54,7 @@ struct audit {
 };
 
 
-static int __match_proto__(byte_iter_f)
+static int v_matchproto_(byte_iter_f)
 audit_iter(void *priv, const void *ptr, ssize_t len)
 {
 	struct audit *ap;
@@ -122,7 +122,7 @@ usage_audit(const char *a0, const char *a00, const char *err)
 	//fprintf(stderr, "\t-t {metadata|resource}\n");
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_audit(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch, i;

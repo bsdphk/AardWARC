@@ -106,7 +106,7 @@ filter_s_check(const struct filt *fp, uint32_t silo, uint64_t offset,
 	return (retval);
 }
 
-static int __match_proto__(idx_iter_f)
+static int v_matchproto_(idx_iter_f)
 filter_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
 {
@@ -194,7 +194,7 @@ cand_cmp(const void *p1, const void *p2)
 	return (strcmp(c1->id, c2->id));
 }
 
-int __match_proto__(main_f)
+int v_matchproto_(main_f)
 main_filter(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;
