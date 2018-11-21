@@ -28,6 +28,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sha256.h>
 
@@ -218,8 +219,6 @@ segjob_finish(struct segjob *sj)
 	Wsilo_Finish(sg->silo);
 	REPLACE(dig, NULL);
 }
-
-#include <stdio.h>
 
 char *
 SegJob_Commit(struct segjob *sj)
