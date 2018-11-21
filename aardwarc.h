@@ -105,6 +105,8 @@ extern const uint8_t Gzip_crnlcrnl[24];
 struct header *Header_New(const struct aardwarc *);
 void Header_Delete(struct header **hdp);
 struct header *Header_Clone(const struct header *hd);
+int Header_Len(const char *name, const char *val, ...)
+    v_printflike_(2, 3);
 void Header_Set(struct header *, const char *name, const char *val, ...)
     v_printflike_(3, 4);
 struct vsb *Header_Serialize(const struct header *, int level);

@@ -124,6 +124,22 @@ Header_Clone(const struct header *hd)
 	return (hdn);
 }
 
+int
+Header_Len(const char *name, const char *val, ...)
+{
+	va_list ap;
+	char buf[1];
+	int l;
+
+	l = strlen(name);
+	l += strlen(": ");
+	va_start(ap, val);
+	l += vsnprintf(buf, 0, val, ap);
+	va_end(ap);
+	l += strlen("\r\n");
+	return (l);
+}
+
 void
 Header_Set(struct header *hd, const char *name, const char *val, ...)
 {

@@ -118,7 +118,7 @@ static void
 segjob_add(struct segjob *sj)
 {
 	struct segment *sg;
-	char *dummy_digest;
+	char *digest;
 	int i;
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
@@ -128,57 +128,50 @@ segjob_add(struct segjob *sj)
 
 	sg->segno = ++sj->nseg;
 
-	dummy_digest = SHA256_Data("", 0, NULL);
-	AN(dummy_digest);
+	digest = SHA256_Data("", 0, NULL);
+	AN(digest);
 
-	if (sg->segno == 1) {
-		sg->hdr = Header_Clone(sj->hdr);
-	} else {
-		sg->hdr = Header_Clone(sj->hdr);
+	sg->hdr = Header_Clone(sj->hdr);
+	if (sg->segno > 1) {
 		Header_Set(sg->hdr, "WARC-Type", "continuation");
-		Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", dummy_digest);
+		Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", digest);
 		Header_Set(sg->hdr, "WARC-Segment-Number", "%d", sg->segno);
 	}
 
-	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", dummy_digest);
-	Header_Set(sg->hdr, "Content-Length-GZIP", "XXXXXXXXXXXXXXX");
-
-	REPLACE(dummy_digest, NULL);
-
-	sg->silo = Wsilo_New(sj->aa);
-	AN(sg->silo);
+	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", digest);
+	/*
+	 * We reserve two extra digits to allow up to 99% compression.
+	 * This also covers the case where data is already gzip'ed and
+	 * the C-L-G is longer than the C-L
+	 */
+	Header_Set(sg->hdr, "Content-Length", "00%jd", sj->aa->silo_maxsize);
+	Header_Set(sg->hdr, "Content-Length-GZIP", "%jd", sj->aa->silo_maxsize);
 
 	/*
 	 * No matter how hard we try, there is no way to predict the headers
 	 * precisely so we must reserve a padding space for the stuff we will
-	 * only know at the end of segment/object.
+	 * only find out at the end of segment/object.
 	 */
 
 	/* Make space for a minimal padding header */
 	i = strlen("z: _\r\n");
 
-	/* If we segment, first segment will get a number */
 	if (sj->nseg == 1) {
-		i += strlen("WARC-Segment-Number: 1\r\n");
-		i += strlen("WARC-Payload-Digest: sha256:");
-		i += SHA256_BLOCK_LENGTH;
-		i += strlen("\r\n");
+		/* If we segment, first segment will get a number */
+		i += Header_Len("WARC-Segment-Number", "1");
+		i += Header_Len("WARC-Payload-Digest", "sha256:%s", digest);
+	} if (sj->nseg > 1) {
+		/* In case this is last segment */
+		i += Header_Len("WARC-Segment-Total-Length", "%00jd",
+		    sj->size + sj->aa->silo_maxsize);
+		i += Header_Len("WARC-Segment-Total-Length-GZIP", "%jd",
+		    sj->size + sj->aa->silo_maxsize);
 	}
 
-	/* All segments get a content length header */
-	i += strlen("Content-Length: XXXXXXXXXXXXXXX\r\n");
+	REPLACE(digest, NULL);
 
-	/* All segments get a gzip'ed content length header */
-	i += strlen("Content-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
-
-	/* In case this is last segment */
-	if (sj->nseg > 1) {
-		i += strlen(
-		    "WARC-Segment-Total-Length: XXXXXXXXXXXXXXX\r\n");
-		i += strlen(
-		    "WARC-Segment-Total-Length-GZIP: XXXXXXXXXXXXXXX\r\n");
-	}
-
+	sg->silo = Wsilo_New(sj->aa);
+	AN(sg->silo);
 	Wsilo_Header(sg->silo, sg->hdr, i);
 
 	VTAILQ_INSERT_TAIL(&sj->segments, sg, list);
