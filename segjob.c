@@ -64,7 +64,7 @@ struct segjob {
 #define SEGJOB_MAGIC		0x61a52fde
 
 	struct aardwarc		*aa;
-	struct header		*hdr;
+	const struct header	*hdr;
 
 	int			nseg;
 	VTAILQ_HEAD(,segment)	segments;
@@ -194,12 +194,20 @@ segjob_finish(struct segjob *sj)
 }
 
 struct segjob *
-SegJob_New(struct aardwarc *aa, struct header *hdr)
+SegJob_New(struct aardwarc *aa, const struct header *hdr)
 {
 	struct segjob *sj;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 	AN(hdr);
+	AN(Header_Get(hdr, "Content-Type"));
+	AN(Header_Get(hdr, "WARC-Type"));
+	AN(Header_Get(hdr, "WARC-Date"));
+	AZ(Header_Get(hdr, "WARC-Segment-Number"));
+	AZ(Header_Get(hdr, "WARC-Payload-Digest"));
+	AZ(Header_Get(hdr, "WARC-Segment-Origin-ID"));
+	AZ(Header_Get(hdr, "WARC-Segment-Total-Length"));
+	AZ(Header_Get(hdr, "WARC-Segment-Total-Length-GZIP"));
 
 	ALLOC_OBJ(sj, SEGJOB_MAGIC);
 	AN(sj);

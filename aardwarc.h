@@ -171,7 +171,7 @@ void proto_dispatch_evs(void);
 
 /* segment.c */
 
-struct segjob *SegJob_New(struct aardwarc *, struct header *);
+struct segjob *SegJob_New(struct aardwarc *, const struct header *);
 void SegJob_Feed(struct segjob *, const void *ptr, ssize_t len);
 char *SegJob_Commit(struct segjob *);
 

@@ -185,18 +185,16 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		exit(1);
 	}
 
-	/* Create headers ---------------------------------------------*/
-
-	hdr = Header_New(aa);
-	AN(hdr);
 
 	/* Check the mime type ----------------------------------------*/
 
 	if (mime_type(aa, wt, mt))
 		exit(1);
 
-	/* Fill in header ---------------------------------------------*/
+	/* Create headers ---------------------------------------------*/
 
+	hdr = Header_New(aa);
+	AN(hdr);
 	Header_Set_Date(hdr);
 	Header_Set(hdr, "Content-Type", "%s", mt);
 	Header_Set(hdr, "WARC-Type", "%s", wt);
@@ -228,6 +226,7 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	printf("%s\n", id);
 
 	REPLACE(ibuf_ptr, NULL);
+	Header_Delete(&hdr);
 
 	return (0);
 }
