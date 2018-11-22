@@ -35,6 +35,7 @@
 #include "vdef.h"
 
 #include "vas.h"
+#include "vsb.h"
 #include "miniobj.h"
 #include "sha256.h"
 #ifndef SHA256_DIGEST_LENGTH
@@ -49,7 +50,10 @@
 struct audit {
 	unsigned		magic;
 #define AUDIT_MAGIC		0xce2bb3e2
+	off_t			o1;
+	off_t			o2;
 	ssize_t			sz;
+	struct header		*hdr;
 	struct SHA256Context	sha256[1];
 };
 
@@ -66,46 +70,136 @@ audit_iter(void *priv, const void *ptr, ssize_t len)
 }
 
 static int
+audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
+{
+	char *oldid, *newid;
+	char buf[SHA256_DIGEST_STRING_LENGTH];
+	const char *is;
+
+	CHECK_OBJ_NOTNULL(ap, AUDIT_MAGIC);
+	(void)SHA256_End(ap->sha256, buf);
+
+
+	is = Header_Get(ap->hdr, "WARC-Block-Digest");
+	if (is == NULL) {
+		VSB_printf(err, "ERROR: WARC-Block-Digest missing\n");
+	} else if (memcmp(is, "sha256:", 7)) {
+		VSB_printf(err, "ERROR: WARC-Block-Digest is not sha256\n");
+	} else if (strcmp(is + 7, buf)) {
+		VSB_printf(err, "ERROR: WARC-Block-Digest difference\n");
+		VSB_printf(err, "\tis:\t\t%s\n", is);
+		VSB_printf(err, "\tshould be:\t%s\n", buf);
+	}
+
+	oldid = strdup(Header_Get_Id(ap->hdr));
+	AN(oldid);
+
+	Ident_Create(aa, ap->hdr, buf);
+	newid = strdup(Header_Get_Id(ap->hdr));
+	AN(newid);
+	Header_Set_Id(ap->hdr, oldid);
+
+	if (strcmp(oldid, newid)) {
+		VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
+		VSB_printf(err, "\tis:\t\t%s\n", oldid);
+		VSB_printf(err, "\tshould be:\t%s\n", newid);
+	}
+	free(oldid);
+	free(newid);
+
+	bprintf(buf, "%jd", (intmax_t)ap->sz);
+	is = Header_Get(ap->hdr, "Content-Length");
+	if (is == NULL) {
+		VSB_printf(err, "ERROR: Content-Length missing\n");
+	} else if (strcmp(buf, is)) {
+		VSB_printf(err, "ERROR: Content-Length difference\n");
+		VSB_printf(err, "\tis:\t\t%s\n", is);
+		VSB_printf(err, "\tshould be:\t%s\n", buf);
+	}
+
+	bprintf(buf, "%jd", (intmax_t)(ap->o2 - ap->o1));
+	is = Header_Get(ap->hdr, "Content-Length-GZIP");
+	if (is == NULL) {
+		VSB_printf(err, "ERROR: Content-Length-GZIP missing\n");
+	} else if (strcmp(buf, is)) {
+		VSB_printf(err, "ERROR: Content-Length-GZIP difference\n");
+		VSB_printf(err, "\tis:\t\t%s\n", is);
+		VSB_printf(err, "\tshould be:\t%s\n", buf);
+	}
+	return (VSB_len(err) > 0);
+}
+
+static int
 audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 {
 	struct rsilo *rs;
-	struct header *hdr;
 	struct audit *ap;
-	char buf[SHA256_DIGEST_STRING_LENGTH];
-	off_t o1, o2;
+	struct vsb *vsb, *vsberr;
+	const char *p;
+	int ngood = 0;
+	int tgood = 0;
+	int tbad = 0;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
 	rs = Rsilo_Open(aa, fn, nsilo);
 	if (rs == NULL)
 		return (-1);
-	printf("Audit silo %p %s %d\n", rs, fn, nsilo);
+	printf("Audit silo %s #%d\n", fn, nsilo);
+
+	vsberr = VSB_new_auto();
+	AN(vsberr);
 
 	while (1) {
-		hdr = Rsilo_ReadHeader(rs);
-		if (hdr == NULL)
-			break;
-		o1 = Rsilo_Tell(rs);
-
 		ALLOC_OBJ(ap, AUDIT_MAGIC);
 		AN(ap);
+		ap->hdr = Rsilo_ReadHeader(rs);
+		if (ap->hdr == NULL) {
+			FREE_OBJ(ap);
+			break;
+		}
+
+		ap->o1 = Rsilo_Tell(rs);
+
 		SHA256_Init(ap->sha256);
 		(void)Rsilo_ReadChunk(rs, audit_iter, ap);
-		o2 = Rsilo_Tell(rs);
+		ap->o2 = Rsilo_Tell(rs);
+
 		Rsilo_SkipCRNL(rs);
-		(void)SHA256_End(ap->sha256, buf);
-		if (memcmp(buf, Header_Get_Id(hdr), aa->id_size)) {
-			printf("ID mismatch <%s> <%s>\n",
-			    buf, Header_Get_Id(hdr));
+
+		VSB_clear(vsberr);
+		if (audit_one(aa, vsberr, ap)) {
+			tbad++;
+			AZ(VSB_finish(vsberr));
+			if (ngood)
+				printf("(%d good entries)\n", ngood);
+			printf("%s", VSB_data(vsberr));
+			vsb = Header_Serialize(ap->hdr, -1);
+			AZ(VSB_finish(vsb));
+			printf("\n\t[%jd...%jd]\n", ap->o1, ap->o2);
+			printf("\n\t| ");
+			for (p = VSB_data(vsb); *p != '\0'; p++) {
+				if (*p == '\n')
+					printf("\n\t| ");
+				else if (*p != '\r')
+					(void)putchar(*p);
+			}
+			printf("\n\n");
+			VSB_destroy(&vsb);
+			ngood = 0;
+		} else {
+			ngood++;
+			tgood++;
 		}
-		printf("<%s> ] %zd %zd\n", buf, ap->sz, o2 - o1);
-
-
-		Header_Delete(&hdr);
+		Header_Destroy(&ap->hdr);
 		FREE_OBJ(ap);
 	}
 
+	if (ngood)
+		printf("(%d good entries)\n", ngood);
+	VSB_destroy(&vsberr);
 	Rsilo_Close(&rs);
+	printf("%d good %d bad entries in this silo\n", tgood, tbad);
 	return (0);
 }
 

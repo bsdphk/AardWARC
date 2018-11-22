@@ -60,6 +60,9 @@ Ident_Create(const struct aardwarc *aa, struct header *hdr,
 	} else if (!strcmp(typ, "continuation")) {
 		/* We use the payload digest as ID */
 		strcpy(dig, payload_digest);
+	} else if (!strcmp(typ, "warcinfo")) {
+		/* We use the payload digest as ID */
+		strcpy(dig, payload_digest);
 	} else if (!strcmp(typ, "metadata")) {
 		/* ID=SHA256(reference_id + "\n" + SHA256(body) + "\n") */
 		SHA256_Init(sha256);

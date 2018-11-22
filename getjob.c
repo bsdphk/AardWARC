@@ -90,7 +90,7 @@ getjob_iter(void *priv, const char *key,
 	p = Header_Get_Id(hdr);
 	gjs = VTAILQ_LAST(&gj->segs, getjobseg_head);
 	if (gjs == NULL && strcasecmp(p, gj->id)){
-		Header_Delete(&hdr);
+		Header_Destroy(&hdr);
 		Rsilo_Close(&rs);
 		return (0);
 	} else if (gjs != NULL) {
@@ -103,7 +103,7 @@ getjob_iter(void *priv, const char *key,
 		assert(p[gj->aa->id_size] == '>');
 		assert(p[gj->aa->id_size + 1L] == '\0');
 		if (strncasecmp(p, gj->id, gj->aa->id_size)) {
-			Header_Delete(&hdr);
+			Header_Destroy(&hdr);
 			Rsilo_Close(&rs);
 			return (0);
 		}
@@ -111,7 +111,7 @@ getjob_iter(void *priv, const char *key,
 		assert(im >= 0);
 		segno = im;
 		if (segno != gjs->segno + 1) {
-			Header_Delete(&hdr);
+			Header_Destroy(&hdr);
 			Rsilo_Close(&rs);
 			return (0);
 		}
@@ -147,7 +147,7 @@ GetJob_Delete(struct getjob **pp)
 			break;
 		VTAILQ_REMOVE(&gj->segs, gjs, list);
 		if (gjs->hdr)
-			Header_Delete(&gjs->hdr);
+			Header_Destroy(&gjs->hdr);
 		if (gjs->rs)
 			Rsilo_Close(&gjs->rs);
 		REPLACE(gjs->idx_cont, NULL);
@@ -311,7 +311,7 @@ GetJob_Headers(const struct getjob *gj)
 		Header_Set(hdr, "WARC-Block-Digest", "%s", p);
 
 		vsb = Header_Serialize(hdr, -1);
-		Header_Delete(&hdr);
+		Header_Destroy(&hdr);
 	}
 	return (vsb);
 }

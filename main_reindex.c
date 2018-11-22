@@ -258,7 +258,7 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 			got_seg(aa, hdr, flg, off, segno, silono);
 		}
 
-		Header_Delete(&hdr);
+		Header_Destroy(&hdr);
 		Rsilo_Seek(rs, o2 + gzlen + 24L);
 	}
 	Rsilo_Close(&rs);

@@ -101,7 +101,7 @@ filter_s_check(const struct filt *fp, uint32_t silo, uint64_t offset,
 	AN(p);
 	if (strcasecmp(p, key))
 		retval = 1;
-	Header_Delete(&hdr);
+	Header_Destroy(&hdr);
 	Rsilo_Close(&rs);
 	return (retval);
 }

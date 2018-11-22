@@ -39,11 +39,14 @@
 
 #include "aardwarc.h"
 
+#ifndef GITREV
+#  define GITREV "unknown version"
+#endif
+
 struct warcinfo {
 	unsigned		magic;
 #define WARCINFO_MAGIC		0x9bef8242
 
-	int			sw_flag;
 	struct header		*hdr;
 	struct vsb		*body;
 };
@@ -55,12 +58,11 @@ c_iter(void *priv, const char *name, const char *arg)
 
 	CAST_OBJ_NOTNULL(wi, priv, WARCINFO_MAGIC);
 	AN(wi->body);
-	VSB_cat(wi->body, name);
-	VSB_cat(wi->body, " ");
-	VSB_cat(wi->body, arg);
-	VSB_cat(wi->body, "\r\n");
 	if (!strcasecmp(name, "software:"))
-		wi->sw_flag = 1;
+		return(0);
+	if (!strcasecmp(name, "title:"))
+		return(0);
+	VSB_printf(wi->body, "%s %s\r\n", name, arg);
 	return (0);
 }
 
@@ -68,60 +70,45 @@ char *
 Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 {
 	struct warcinfo *wi;
-	char *p, *q;
+	char *p;
 	const char *r;
 	struct vsb *vsb;
 	void *ptr;
 	ssize_t len, len2;
-	struct SHA256Context sha256[1];
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 	AN(wsl);
 	ALLOC_OBJ(wi, WARCINFO_MAGIC);
 	AN(wi);
 
-	/* Assemble Body first, we need it's len & digest for the header */
-
-	wi->body = VSB_new_auto();
-	AN(wi->body);
-	AZ(Config_Iter(aa->cfg, "warcinfo.body", wi, c_iter));
-	if (!wi->sw_flag) {
-		VSB_printf(wi->body, "software: %s",
-		    "https://github.com/bsdphk/AardWARC");
-#ifdef GITREV
-		VSB_printf(wi->body, " (%s)", GITREV);
-#endif
-		VSB_printf(wi->body, "\r\n");
-	}
-	AZ(VSB_finish(wi->body));
-
-	/* Assemble headers, now we know C-L from body */
-
 	wi->hdr = Header_New(aa);
 	AN(wi->hdr);
-	Header_Set_Date(wi->hdr);
-	Header_Set(wi->hdr, "WARC-Type", "warcinfo");
-	Header_Set(wi->hdr, "Content-Type", "application/warc-fields");
-	Header_Set(wi->hdr, "Content-Length", "%zd", VSB_len(wi->body));
-
-	p = SHA256_Data(VSB_data(wi->body), VSB_len(wi->body) - 4, NULL);
-	Header_Set(wi->hdr, "WARC-Block-Digest", "sha256:%s", p);
 
 	Header_Set(wi->hdr, "WARC-Filename", aa->silo_basename, silono);
 	r = Header_Get(wi->hdr, "WARC-Filename");
 	AN(r);
 
-	SHA256_Init(sha256);
-	SHA256_Update(sha256, p, strlen(p));
-	SHA256_Update(sha256, "\n", 1);
-	SHA256_Update(sha256, r, strlen(r));
-	SHA256_Update(sha256, "\n", 1);
-	q = SHA256_End(sha256, NULL);
-	AN(q);
-	Header_Set_Id(wi->hdr, q);
+	/* Assemble Body first, we need it's len & digest for the header */
+
+	wi->body = VSB_new_auto();
+	AN(wi->body);
+	VSB_printf(wi->body, "title: %s\r\n", r);
+	AZ(Config_Iter(aa->cfg, "warcinfo.body", wi, c_iter));
+	VSB_printf(wi->body, "software: %s (%s)\r\n",
+	    "https://github.com/bsdphk/AardWARC", GITREV);
+	AZ(VSB_finish(wi->body));
+
+	Header_Set_Date(wi->hdr);
+	Header_Set(wi->hdr, "WARC-Type", "warcinfo");
+	Header_Set(wi->hdr, "Content-Type", "application/warc-fields");
+	Header_Set(wi->hdr, "Content-Length", "%zd", VSB_len(wi->body));
+
+	p = SHA256_Data(VSB_data(wi->body), VSB_len(wi->body), NULL);
+	Header_Set(wi->hdr, "WARC-Block-Digest", "sha256:%s", p);
+
+	Ident_Create(aa, wi->hdr, p);
 
 	REPLACE(p, NULL);
-	REPLACE(q, NULL);
 
 	Gzip_Vsb(&wi->body, 0);
 	Header_Set(wi->hdr, "Content-Length-GZIP", "%zd", VSB_len(wi->body));
@@ -140,7 +127,7 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	AN(p);
 
 	VSB_delete(vsb);
-	Header_Delete(&wi->hdr);
+	Header_Destroy(&wi->hdr);
 
 	len2 = VSB_len(wi->body);
 	assert(len2 > 0);

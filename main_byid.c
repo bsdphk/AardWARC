@@ -72,7 +72,7 @@ byid_iter(void *priv, const char *key,
 	p = Header_Get(hdr, "WARC-Type");
 	printf(" wt %s", p);
 	printf("\n");
-	Header_Delete(&hdr);
+	Header_Destroy(&hdr);
 	Rsilo_Close(&rs);
 	return(0);
 }

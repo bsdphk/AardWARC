@@ -77,7 +77,7 @@ Header_New(const struct aardwarc *aa)
 }
 
 void
-Header_Delete(struct header **hdp)
+Header_Destroy(struct header **hdp)
 {
 	struct header *hdr;
 	struct hfield *hf;

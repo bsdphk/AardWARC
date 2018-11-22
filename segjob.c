@@ -89,7 +89,7 @@ segjob_destroy(struct segjob *sj)
 		VTAILQ_REMOVE(&sj->segments, sg, list);
 		if (sg->silo != NULL)
 			Wsilo_Abandon(&sg->silo);
-		Header_Delete(&sg->hdr);
+		Header_Destroy(&sg->hdr);
 		FREE_OBJ(sg);
 	}
 	FREE_OBJ(sj);

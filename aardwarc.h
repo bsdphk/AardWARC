@@ -103,7 +103,7 @@ extern const uint8_t Gzip_crnlcrnl[24];
 /* header.c */
 
 struct header *Header_New(const struct aardwarc *);
-void Header_Delete(struct header **hdp);
+void Header_Destroy(struct header **hdp);
 struct header *Header_Clone(const struct header *hd);
 int Header_Len(const char *name, const char *val, ...)
     v_printflike_(2, 3);

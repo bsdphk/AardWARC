@@ -226,7 +226,7 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	printf("%s\n", id);
 
 	REPLACE(ibuf_ptr, NULL);
-	Header_Delete(&hdr);
+	Header_Destroy(&hdr);
 
 	return (0);
 }
