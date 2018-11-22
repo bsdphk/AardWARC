@@ -38,12 +38,7 @@
 #include "vsb.h"
 #include "miniobj.h"
 #include "sha256.h"
-#ifndef SHA256_DIGEST_LENGTH
-#  define SHA256_DIGEST_LENGTH            32
-#endif
-#ifndef SHA256_DIGEST_STRING_LENGTH
-#  define SHA256_DIGEST_STRING_LENGTH     (SHA256_DIGEST_LENGTH * 2 + 1)
-#endif
+#include "vqueue.h"
 
 #include "aardwarc.h"
 
@@ -53,10 +48,53 @@ struct audit {
 	off_t			o1;
 	off_t			o2;
 	ssize_t			sz;
+	ssize_t			gzsz;
 	struct header		*hdr;
 	struct SHA256Context	sha256[1];
+
+	/* Only used for segmented records */
+	const char		*silo_fn;
+	int			silo_no;
+	int			segment;
+	VTAILQ_ENTRY(audit)	list;
 };
 
+static VTAILQ_HEAD(,audit) segment_list =
+    VTAILQ_HEAD_INITIALIZER(segment_list);
+
+static void
+audit_check_header(struct vsb *err, const struct audit *ap,
+    const char *hdn, const char *expect)
+{
+	const char *is;
+
+	is = Header_Get(ap->hdr, hdn);
+	if (is == NULL) {
+		VSB_printf(err, "ERROR: %s missing\n", hdn);
+	} else if (strcmp(expect, is)) {
+		VSB_printf(err, "ERROR: %s difference\n", hdn);
+		VSB_printf(err, "\tis:\t\t%s\n", is);
+		VSB_printf(err, "\tshould be:\t%s\n", expect);
+	}
+}
+
+static void
+audit_check_digest_header(struct vsb *err, const struct audit *ap,
+    const char *hdn, const char *expect)
+{
+	const char *is;
+
+	is = Header_Get(ap->hdr, hdn);
+	if (is == NULL) {
+		VSB_printf(err, "ERROR: %s missing\n", hdn);
+	} else if (memcmp(is, "sha256:", 7)) {
+		VSB_printf(err, "ERROR: %s is not sha256\n", hdn);
+	} else if (strcmp(is + 7, expect)) {
+		VSB_printf(err, "ERROR: %s difference\n", hdn);
+		VSB_printf(err, "\tis:\t\t%s\n", is);
+		VSB_printf(err, "\tshould be:\t%s\n", expect);
+	}
+}
 
 static int v_matchproto_(byte_iter_f)
 audit_iter(void *priv, const void *ptr, ssize_t len)
@@ -69,64 +107,187 @@ audit_iter(void *priv, const void *ptr, ssize_t len)
 	return (0);
 }
 
+static void
+audit_report(FILE *fo, struct audit *ap)
+{
+	struct vsb *vsb;
+	const char *p;
+
+	if (fo == NULL)
+		fo = stdout;
+	CHECK_OBJ_NOTNULL(ap, AUDIT_MAGIC);
+
+	vsb = Header_Serialize(ap->hdr, -1);
+	AZ(VSB_finish(vsb));
+	fprintf(fo, "\n\t[%jd...%jd]\n", ap->o1, ap->o2);
+	fprintf(fo, "\n\t| ");
+	for (p = VSB_data(vsb); *p != '\0'; p++) {
+		if (*p == '\n')
+			fprintf(fo, "\n\t| ");
+		else if (*p != '\r')
+			(void)fputc(*p, fo);
+	}
+	fprintf(fo, "\n\n");
+	VSB_destroy(&vsb);
+}
+
+static void
+audit_add_one_segment(struct aardwarc *aa, struct audit *ap0, struct audit *ap)
+{
+	struct rsilo *rs;
+	off_t o2;
+
+	printf("ADD %s %d [%jd %jd]\n",
+	    ap->silo_fn, ap->silo_no, ap->o1, ap->o2);
+	ap0->gzsz += ap->o2 - ap->o1;
+
+	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no);
+	AN(rs);
+	Rsilo_Seek(rs, ap->o1);
+	(void)Rsilo_ReadChunk(rs, audit_iter, ap0);
+	o2 = Rsilo_Tell(rs);
+	assert(o2 == ap->o2);
+	Rsilo_Close(&rs);
+}
+
+static void
+audit_final_pending(struct aardwarc *aa, struct vsb *err, struct audit *ap0,
+    struct audit *apn)
+{
+	char buf[64];
+	char dig[SHA256_DIGEST_STRING_LENGTH];
+
+	(void)aa;
+
+	bprintf(buf, "%jd", ap0->gzsz);
+	audit_check_header(err, apn, "WARC-Segment-Total-Length-GZIP", buf);
+
+	bprintf(buf, "%jd", ap0->sz);
+	audit_check_header(err, apn, "WARC-Segment-Total-Length", buf);
+
+	(void)SHA256_End(ap0->sha256, dig);
+	audit_check_digest_header(err, ap0, "WARC-Payload-Digest", dig);
+
+	// XXX: Checke ap0->WARC-Record-ID
+}
+
+static int
+audit_one_pending(struct aardwarc *aa, struct vsb *err)
+{
+	struct audit *ap0, *ap1, *ap, *apn, *aps;
+	const char *origin, *oid, *p;
+
+	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+	VTAILQ_FOREACH(ap0, &segment_list, list) {
+		CHECK_OBJ_NOTNULL(ap0, AUDIT_MAGIC);
+		if (ap0->segment == 1)
+			break;
+	}
+	if (ap0 == NULL)
+		return (0);
+	VTAILQ_REMOVE(&segment_list, ap0, list);
+	printf("Auditing this segmented object:\n");
+	audit_report(NULL, ap0);
+	SHA256_Init(ap0->sha256);
+	ap0->sz = 0;
+	ap0->gzsz = 0;
+	audit_add_one_segment(aa, ap0, ap0);
+
+	oid = Header_Get_Id(ap0->hdr);
+	ap = ap0;
+	do {
+		ap1 = ap;
+		printf("    >>>>\n");
+		VTAILQ_FOREACH_SAFE(apn, &segment_list, list, aps) {
+			CHECK_OBJ_NOTNULL(apn, AUDIT_MAGIC);
+			if (apn->segment != ap->segment + 1)
+				continue;
+			origin = Header_Get(apn->hdr, "WARC-Segment-Origin-ID");
+			if (origin == NULL)
+				continue;
+			if (*origin++ != '<')
+				continue;
+			if (memcmp(aa->prefix, origin, strlen(aa->prefix)))
+				continue;
+			origin += strlen(aa->prefix);
+			if (strncmp(origin, oid, strlen(oid)))
+				continue;
+			origin += strlen(oid);
+			if (*origin++ != '>')
+				continue;
+			audit_report(NULL, apn);
+			audit_add_one_segment(aa, ap0, apn);
+			VTAILQ_REMOVE(&segment_list, apn, list);
+			p = Header_Get(apn->hdr, "WARC-Segment-Total-Length");
+			if (p != NULL) {
+				VSB_clear(err);
+				audit_final_pending(aa, err, ap0, apn);
+				AZ(VSB_finish(err));
+				if (VSB_len(err)) {
+					printf("%s", VSB_data(err));
+					audit_report(NULL, ap);
+					return (-1);
+				} else {
+					return (1);
+				}
+			}
+			ap = apn;
+		}
+	} while (ap == ap1);
+
+	printf("ERROR: Failed to find segment %d\n", ap->segment + 1);
+	return (0);
+}
+
 static int
 audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 {
-	char *oldid, *newid;
-	char buf[SHA256_DIGEST_STRING_LENGTH];
+	char *oldid, *newid, *p;
+	char dig[SHA256_DIGEST_STRING_LENGTH];
+	char buf[64];
 	const char *is;
+	int retval = 0;
 
 	CHECK_OBJ_NOTNULL(ap, AUDIT_MAGIC);
-	(void)SHA256_End(ap->sha256, buf);
 
-
-	is = Header_Get(ap->hdr, "WARC-Block-Digest");
-	if (is == NULL) {
-		VSB_printf(err, "ERROR: WARC-Block-Digest missing\n");
-	} else if (memcmp(is, "sha256:", 7)) {
-		VSB_printf(err, "ERROR: WARC-Block-Digest is not sha256\n");
-	} else if (strcmp(is + 7, buf)) {
-		VSB_printf(err, "ERROR: WARC-Block-Digest difference\n");
-		VSB_printf(err, "\tis:\t\t%s\n", is);
-		VSB_printf(err, "\tshould be:\t%s\n", buf);
-	}
-
-	oldid = strdup(Header_Get_Id(ap->hdr));
-	AN(oldid);
-
-	Ident_Create(aa, ap->hdr, buf);
-	newid = strdup(Header_Get_Id(ap->hdr));
-	AN(newid);
-	Header_Set_Id(ap->hdr, oldid);
-
-	if (strcmp(oldid, newid)) {
-		VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
-		VSB_printf(err, "\tis:\t\t%s\n", oldid);
-		VSB_printf(err, "\tshould be:\t%s\n", newid);
-	}
-	free(oldid);
-	free(newid);
+	(void)SHA256_End(ap->sha256, dig);
+	audit_check_digest_header(err, ap, "WARC-Block-Digest", dig);
 
 	bprintf(buf, "%jd", (intmax_t)ap->sz);
-	is = Header_Get(ap->hdr, "Content-Length");
-	if (is == NULL) {
-		VSB_printf(err, "ERROR: Content-Length missing\n");
-	} else if (strcmp(buf, is)) {
-		VSB_printf(err, "ERROR: Content-Length difference\n");
-		VSB_printf(err, "\tis:\t\t%s\n", is);
-		VSB_printf(err, "\tshould be:\t%s\n", buf);
-	}
+	audit_check_header(err, ap, "Content-Length", buf);
 
 	bprintf(buf, "%jd", (intmax_t)(ap->o2 - ap->o1));
-	is = Header_Get(ap->hdr, "Content-Length-GZIP");
-	if (is == NULL) {
-		VSB_printf(err, "ERROR: Content-Length-GZIP missing\n");
-	} else if (strcmp(buf, is)) {
-		VSB_printf(err, "ERROR: Content-Length-GZIP difference\n");
-		VSB_printf(err, "\tis:\t\t%s\n", is);
-		VSB_printf(err, "\tshould be:\t%s\n", buf);
+	audit_check_header(err, ap, "Content-Length-GZIP", buf);
+
+	is = Header_Get(ap->hdr, "WARC-Segment-Number");
+	if (is != NULL) {
+		retval = 1;
+		VTAILQ_INSERT_TAIL(&segment_list, ap, list);
+		p = NULL;
+		ap->segment = strtoul(is, &p, 0);
+		if (p == is || (p != NULL && *p != '\0'))
+			VSB_printf(err, "ERROR: Bad WARC-Segment-Number\n");
 	}
-	return (VSB_len(err) > 0);
+
+	if (is == NULL || strcmp(is, "1")) {
+		oldid = strdup(Header_Get_Id(ap->hdr));
+		AN(oldid);
+
+		Ident_Create(aa, ap->hdr, dig);
+		newid = strdup(Header_Get_Id(ap->hdr));
+		AN(newid);
+		Header_Set_Id(ap->hdr, oldid);
+
+		if (strcmp(oldid, newid)) {
+			VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
+			VSB_printf(err, "\tis:\t\t%s\n", oldid);
+			VSB_printf(err, "\tshould be:\t%s\n", newid);
+		}
+		free(oldid);
+		free(newid);
+	}
+
+	return (retval);
 }
 
 static int
@@ -134,11 +295,11 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 {
 	struct rsilo *rs;
 	struct audit *ap;
-	struct vsb *vsb, *vsberr;
-	const char *p;
+	struct vsb *vsberr;
 	int ngood = 0;
 	int tgood = 0;
 	int tbad = 0;
+	int r;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
@@ -153,6 +314,8 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 	while (1) {
 		ALLOC_OBJ(ap, AUDIT_MAGIC);
 		AN(ap);
+		ap->silo_fn = fn;
+		ap->silo_no = nsilo;
 		ap->hdr = Rsilo_ReadHeader(rs);
 		if (ap->hdr == NULL) {
 			FREE_OBJ(ap);
@@ -168,31 +331,23 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 		Rsilo_SkipCRNL(rs);
 
 		VSB_clear(vsberr);
-		if (audit_one(aa, vsberr, ap)) {
+		r = audit_one(aa, vsberr, ap);
+		if (VSB_len(vsberr)) {
 			tbad++;
 			AZ(VSB_finish(vsberr));
 			if (ngood)
 				printf("(%d good entries)\n", ngood);
 			printf("%s", VSB_data(vsberr));
-			vsb = Header_Serialize(ap->hdr, -1);
-			AZ(VSB_finish(vsb));
-			printf("\n\t[%jd...%jd]\n", ap->o1, ap->o2);
-			printf("\n\t| ");
-			for (p = VSB_data(vsb); *p != '\0'; p++) {
-				if (*p == '\n')
-					printf("\n\t| ");
-				else if (*p != '\r')
-					(void)putchar(*p);
-			}
-			printf("\n\n");
-			VSB_destroy(&vsb);
+			audit_report(NULL, ap);
 			ngood = 0;
 		} else {
 			ngood++;
 			tgood++;
 		}
-		Header_Destroy(&ap->hdr);
-		FREE_OBJ(ap);
+		if (!r) {
+			Header_Destroy(&ap->hdr);
+			FREE_OBJ(ap);
+		}
 	}
 
 	if (tbad && ngood)
@@ -221,6 +376,8 @@ main_audit(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch, i;
 	const char *a00 = *argv;
+	struct audit *ap;
+	struct vsb *err;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
@@ -246,6 +403,16 @@ main_audit(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			if (audit_silo(aa, *argv++, -1))
 				break;
 	}
+
+	err = VSB_new_auto();
+	AN(err);
+	while (audit_one_pending(aa, err))
+		continue;
+	VTAILQ_FOREACH(ap, &segment_list, list) {
+		printf("Left on pending %d %jd %jd %d\n",
+		    ap->silo_no, ap->o1, ap->o2, ap->segment);
+	}
+	VSB_destroy(&err);
 
 	return (0);
 }
