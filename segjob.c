@@ -96,13 +96,15 @@ segjob_destroy(struct segjob *sj)
 }
 
 static void
-segjob_add(struct segjob *sj)
+segjob_newseg(struct segjob *sj)
 {
 	struct segment *sg;
 	char *digest;
-	int i;
+	int pad = 0, i;
+	intmax_t im;
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
+	AZ(sj->cur_seg);
 
 	ALLOC_OBJ(sg, SEGMENT_MAGIC);
 	AN(sg);
@@ -113,46 +115,44 @@ segjob_add(struct segjob *sj)
 	AN(digest);
 
 	sg->hdr = Header_Clone(sj->hdr);
-	if (sg->segno > 1) {
-		Header_Set(sg->hdr, "WARC-Type", "continuation");
-		Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", digest);
-		Header_Set(sg->hdr, "WARC-Segment-Number", "%d", sg->segno);
-	}
+
+	/*
+	 * No matter how hard we try, there is no way to predict the headers
+	 * precisely so we must reserve a padding space for the stuff we will
+	 * only find out later as the size increases.
+	 */
 
 	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", digest);
+
 	/*
 	 * We reserve two extra digits to allow up to 99% compression.
 	 * This also covers the case where data is already gzip'ed and
 	 * the C-L-G is longer than the C-L
 	 */
-	Header_Set(sg->hdr, "Content-Length", "00%jd", sj->aa->silo_maxsize);
-	Header_Set(sg->hdr, "Content-Length-GZIP", "%jd", sj->aa->silo_maxsize);
+	im = sj->aa->silo_maxsize;
+	Header_Set(sg->hdr, "Content-Length", "00%jd", im);
+	Header_Set(sg->hdr, "Content-Length-GZIP", "%jd", im);
 
-	/*
-	 * No matter how hard we try, there is no way to predict the headers
-	 * precisely so we must reserve a padding space for the stuff we will
-	 * only find out at the end of segment/object.
-	 */
+	if (sg->segno == 1) {
+		pad += Header_Len("WARC-Segment-Number", "1");
+		pad += Header_Len("WARC-Payload-Digest", "sha256:%s", digest);
+	} else {
+		Header_Set(sg->hdr, "WARC-Segment-Number", "%d", sg->segno);
+		Header_Set(sg->hdr, "WARC-Type", "continuation");
+		Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", digest);
 
-	i = 0;
-
-	if (sj->nseg == 1) {
-		/* If we segment, first segment will get a number */
-		i += Header_Len("WARC-Segment-Number", "1");
-		i += Header_Len("WARC-Payload-Digest", "sha256:%s", digest);
-	} if (sj->nseg > 1) {
-		/* In case this is last segment */
-		i += Header_Len("WARC-Segment-Total-Length", "%00jd",
-		    sj->size + sj->aa->silo_maxsize);
-		i += Header_Len("WARC-Segment-Total-Length-GZIP", "%jd",
-		    sj->size + sj->aa->silo_maxsize);
+		/* In case this becomes the last segment */
+		im = sj->size + sj->aa->silo_maxsize;
+		pad += Header_Len("WARC-Segment-Total-Length", "%00jd", im);
+		im = sj->gzsize + sj->aa->silo_maxsize;
+		pad += Header_Len("WARC-Segment-Total-Length-GZIP", "%jd", im);
 	}
 
 	REPLACE(digest, NULL);
 
 	sg->silo = Wsilo_New(sj->aa);
 	AN(sg->silo);
-	Wsilo_Header(sg->silo, sg->hdr, i);
+	Wsilo_Header(sg->silo, sg->hdr, pad);
 
 	VTAILQ_INSERT_TAIL(&sj->segments, sg, list);
 
@@ -172,7 +172,7 @@ segjob_add(struct segjob *sj)
 }
 
 static void
-segjob_finish(struct segjob *sj)
+segjob_finishseg(struct segjob *sj)
 {
 	char *dig;
 	struct segment *sg;
@@ -187,8 +187,9 @@ segjob_finish(struct segjob *sj)
 	dig = SHA256_End(sj->sha256_segment, NULL);
 	AN(dig);
 	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", dig);
-	Header_Set(sg->hdr, "Content-Length-GZIP", "%ju", sj->gz->total_out);
-	Header_Set_Id(sg->hdr, dig);
+	Header_Set(sg->hdr, "Content-Length", "%jd", (intmax_t)sg->size);
+	Header_Set(sg->hdr, "Content-Length-GZIP", "%jd", (intmax_t)sg->gzsize);
+	Ident_Create(sj->aa, sg->hdr, dig);
 	Wsilo_Finish(sg->silo);
 	REPLACE(dig, NULL);
 }
@@ -235,7 +236,7 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 		/* Get current segment --------------------------------*/
 
 		if (sj->cur_seg == NULL)
-			segjob_add(sj);
+			segjob_newseg(sj);
 
 		sg = sj->cur_seg;
 		CHECK_OBJ_NOTNULL(sg, SEGMENT_MAGIC);
@@ -251,8 +252,8 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 
 		if (obuf_len < 52 || ilen == 0) {
 			/*
-			 * Just enough space for alignment and tail
-			 * 40 byte is found by trial and error
+			 * Just enough space for alignment and tail.
+			 * Trial and error found 40 byte, 52 to be safe.
 			 */
 			if (sj->gz_flag != Z_FINISH) {
 				AZ(sj->gz->avail_in);
@@ -312,7 +313,7 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 			assert(obuf_len > (ssize_t)sizeof Gzip_crnlcrnl);
 			memcpy(obuf_ptr, Gzip_crnlcrnl, sizeof Gzip_crnlcrnl);
 			AZ(Wsilo_Store(sg->silo, sizeof Gzip_crnlcrnl));
-			segjob_finish(sj);
+			segjob_finishseg(sj);
 		}
 
 	} while (sj->gz->avail_in > 0 || ilen > 0);
@@ -321,48 +322,43 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 char *
 SegJob_Commit(struct segjob *sj)
 {
-	char *dig, *id;
+	char *id;
 	struct segment *sg, *sgn;
-	const char *rid;
+	const char *fid, *rid;
 	struct getjob *gj;
 	struct vsb *vsb;
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
 	SegJob_Feed(sj, "", 0);
 	AN(sj->size);
-	dig = SHA256_End(sj->sha256_payload, NULL);
-	AN(dig);
 
 	sg = VTAILQ_FIRST(&sj->segments);
 	AN(sg);
-	if (sj->nseg > 1)
-		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", dig);
 
-	Ident_Create(sj->aa, sg->hdr, dig);
+	if (sj->nseg > 1) {
+		/* Update ID of first segment */
+		id = SHA256_End(sj->sha256_payload, NULL);
+		AN(id);
+		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", id);
+		Ident_Create(sj->aa, sg->hdr, id);
+		REPLACE(id, NULL);
+	}
+
+	fid = Header_Get_Id(sg->hdr);
+	id = Digest2Ident(sj->aa, fid);
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VSB_printf(vsb, "%s%s", sj->aa->prefix, Header_Get_Id(sg->hdr));
-	AZ(VSB_finish(vsb));
-	id = strdup(VSB_data(vsb));
-	AN(id);
-
-	VSB_clear(vsb);
-	gj = GetJob_New(sj->aa, dig, vsb);
+	gj = GetJob_New(sj->aa, fid, vsb);
 	if (gj != NULL) {
 		GetJob_Delete(&gj);
-		fprintf(stderr, "ID %s already in archive\n", dig);
-		REPLACE(dig, NULL);
+		fprintf(stderr, "ID %s already in archive\n", fid);
 		segjob_destroy(sj);
 		return (id);
 	}
 
 	if (sj->nseg == 1) {
-		Header_Set(sg->hdr, "Content-Length",
-		    "%jd", (intmax_t)sg->size);
-
-		Wsilo_Commit(&sg->silo, 0, Header_Get_Id(sg->hdr), NULL);
-		REPLACE(dig, NULL);
+		Wsilo_Commit(&sg->silo, 0, fid, NULL);
 		segjob_destroy(sj);
 		return (id);
 	}
@@ -370,9 +366,8 @@ SegJob_Commit(struct segjob *sj)
 	VTAILQ_FOREACH(sg, &sj->segments, list) {
 		if (sg->segno == 1)
 			Header_Set(sg->hdr, "WARC-Segment-Number", "1");
-
-		if (sg->segno > 1)
-			Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", dig);
+		else
+			Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", fid);
 
 		sgn = VTAILQ_NEXT(sg, list);
 		if (sgn == NULL) {
@@ -385,11 +380,7 @@ SegJob_Commit(struct segjob *sj)
 			rid = Header_Get_Id(sgn->hdr);
 		}
 
-		Header_Set(sg->hdr, "Content-Length", "%jd",
-		    (intmax_t)sg->size);
-
 		Wsilo_Commit(&sg->silo, 1, Header_Get_Id(sg->hdr), rid);
 	}
-	REPLACE(dig, NULL);
 	return (id);
 }
