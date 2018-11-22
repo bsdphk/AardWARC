@@ -29,10 +29,12 @@
 
 
 #include <unistd.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "vdef.h"
+#include "miniobj.h"
 #include "vas.h"
 #include "vsb.h"
 #include "sha256.h"
@@ -47,9 +49,15 @@ Ident_Create(const struct aardwarc *aa, struct header *hdr,
 	struct SHA256Context sha256[1];
 	char dig[SHA256_DIGEST_STRING_LENGTH];
 
+	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+	AN(hdr);
+	AN(payload_digest);
 	typ = Header_Get(hdr, "WARC-Type");
 	AN(typ);
 	if (!strcmp(typ, "resource")) {
+		/* We use the payload digest as ID */
+		strcpy(dig, payload_digest);
+	} else if (!strcmp(typ, "continuation")) {
 		/* We use the payload digest as ID */
 		strcpy(dig, payload_digest);
 	} else if (!strcmp(typ, "metadata")) {
@@ -63,9 +71,30 @@ Ident_Create(const struct aardwarc *aa, struct header *hdr,
 		SHA256_Update(sha256, "\n", 1);
 		AN(SHA256_End(sha256, dig));
 	} else {
+		fprintf(stderr, "XXX %s\n", typ);
 		WRONG("Unknown WARC-Type");
 	}
 
 	dig[aa->id_size] = '\0';
 	Header_Set_Id(hdr, dig);
+}
+
+char *
+Digest2Ident(const struct aardwarc *aa, const char *digest)
+{
+	struct vsb *vsb;
+	char *id;
+
+	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+	AN(digest);
+
+	vsb = VSB_new_auto();
+	AN(vsb);
+	VSB_printf(vsb, "%s%s", aa->prefix, digest);
+	AZ(VSB_finish(vsb));
+	AZ(IDX_Valid_Id(aa, VSB_data(vsb), NULL));
+	id = strdup(VSB_data(vsb));
+	AN(id);
+	VSB_destroy(&vsb);
+	return (id);
 }

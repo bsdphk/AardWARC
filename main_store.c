@@ -132,17 +132,9 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 				usage_store(a0, a00, e);
 				exit(1);
 			}
-			if (strlen(optarg) == aa->id_size) {
-				vsb = VSB_new_auto();
-				AN(vsb);
-				VSB_printf(vsb, "%s%s", aa->prefix, optarg);
-				AZ(VSB_finish(vsb));
-				AZ(IDX_Valid_Id(aa, VSB_data(vsb), NULL));
-				ref = strdup(VSB_data(vsb));
-				AN(ref);
-				VSB_delete(vsb);
-				vsb = NULL;
-			} else
+			if (strlen(optarg) == aa->id_size)
+				ref = Digest2Ident(aa, optarg);
+			else
 				ref = optarg;
 			break;
 		default:
