@@ -195,7 +195,7 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 		FREE_OBJ(ap);
 	}
 
-	if (ngood)
+	if (tbad && ngood)
 		printf("(%d good entries)\n", ngood);
 	VSB_destroy(&vsberr);
 	Rsilo_Close(&rs);
