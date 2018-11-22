@@ -42,7 +42,7 @@
 #include "aardwarc.h"
 
 void
-Ident_Create(const struct aardwarc *aa, struct header *hdr,
+Ident_Create(const struct aardwarc *aa, const struct header *hdr,
     const char *payload_digest, char *ident)
 {
 	const char *typ, *ref;

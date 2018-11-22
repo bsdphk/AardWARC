@@ -58,6 +58,10 @@ c_iter(void *priv, const char *name, const char *arg)
 
 	CAST_OBJ_NOTNULL(wi, priv, WARCINFO_MAGIC);
 	AN(wi->body);
+	if (!strcasecmp(name, "conformsTo:"))
+		return(0);
+	if (!strcasecmp(name, "format:"))
+		return(0);
 	if (!strcasecmp(name, "software:"))
 		return(0);
 	if (!strcasecmp(name, "title:"))
@@ -94,6 +98,9 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	AN(wi->body);
 	VSB_printf(wi->body, "title: %s\r\n", r);
 	AZ(Config_Iter(aa->cfg, "warcinfo.body", wi, c_iter));
+	VSB_printf(wi->body, "format: WARC file version 1.1\r\n");
+	VSB_printf(wi->body, "conformsTo: %s\r\n",
+	    "http://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/");
 	VSB_printf(wi->body, "software: %s (%s)\r\n",
 	    "https://github.com/bsdphk/AardWARC", GITREV);
 	AZ(VSB_finish(wi->body));

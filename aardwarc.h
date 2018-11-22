@@ -120,7 +120,8 @@ const char *Header_Get(const struct header *, const char *name);
 
 /* ident.c */
 
-void Ident_Create(const struct aardwarc *, struct header *, const char *, char *ident);
+void Ident_Create(const struct aardwarc *, const struct header *,
+    const char *, char *ident);
 void Ident_Set(const struct aardwarc *, struct header *, const char *);
 char *Digest2Ident(const struct aardwarc *, const char *);
 
