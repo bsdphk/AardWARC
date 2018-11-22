@@ -78,25 +78,6 @@ struct segjob {
 	int			gz_flag;
 };
 
-struct segjob *
-SegJob_New(struct aardwarc *aa, struct header *hdr)
-{
-	struct segjob *sj;
-
-	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
-	AN(hdr);
-
-	ALLOC_OBJ(sj, SEGJOB_MAGIC);
-	AN(sj);
-
-	VTAILQ_INIT(&sj->segments);
-	SHA256_Init(sj->sha256_payload);
-	sj->aa = aa;
-	sj->hdr = hdr;
-
-	return (sj);
-}
-
 static void
 segjob_destroy(struct segjob *sj)
 {
@@ -213,80 +194,23 @@ segjob_finish(struct segjob *sj)
 	REPLACE(dig, NULL);
 }
 
-char *
-SegJob_Commit(struct segjob *sj)
+struct segjob *
+SegJob_New(struct aardwarc *aa, struct header *hdr)
 {
-	char *dig, *id;
-	struct segment *sg, *sgn;
-	const char *rid;
-	struct getjob *gj;
-	struct vsb *vsb;
+	struct segjob *sj;
 
-	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
-	SegJob_Feed(sj, "", 0);
-	AN(sj->size);
-	dig = SHA256_End(sj->sha256_payload, NULL);
-	AN(dig);
+	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+	AN(hdr);
 
-	sg = VTAILQ_FIRST(&sj->segments);
-	AN(sg);
-	if (sj->nseg > 1)
-		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", dig);
+	ALLOC_OBJ(sj, SEGJOB_MAGIC);
+	AN(sj);
 
-	Ident_Create(sj->aa, sg->hdr, dig);
+	VTAILQ_INIT(&sj->segments);
+	SHA256_Init(sj->sha256_payload);
+	sj->aa = aa;
+	sj->hdr = hdr;
 
-	vsb = VSB_new_auto();
-	AN(vsb);
-	VSB_printf(vsb, "%s%s", sj->aa->prefix, Header_Get_Id(sg->hdr));
-	AZ(VSB_finish(vsb));
-	id = strdup(VSB_data(vsb));
-	AN(id);
-
-	VSB_clear(vsb);
-	gj = GetJob_New(sj->aa, dig, vsb);
-	if (gj != NULL) {
-		GetJob_Delete(&gj);
-		fprintf(stderr, "ID %s already in archive\n", dig);
-		REPLACE(dig, NULL);
-		segjob_destroy(sj);
-		return (id);
-	}
-
-	if (sj->nseg == 1) {
-		Header_Set(sg->hdr, "Content-Length",
-		    "%jd", (intmax_t)sg->size);
-
-		Wsilo_Commit(&sg->silo, 0, Header_Get_Id(sg->hdr), NULL);
-		REPLACE(dig, NULL);
-		segjob_destroy(sj);
-		return (id);
-	}
-
-	VTAILQ_FOREACH(sg, &sj->segments, list) {
-		if (sg->segno == 1)
-			Header_Set(sg->hdr, "WARC-Segment-Number", "1");
-
-		if (sg->segno > 1)
-			Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", dig);
-
-		sgn = VTAILQ_NEXT(sg, list);
-		if (sgn == NULL) {
-			Header_Set(sg->hdr, "WARC-Segment-Total-Length",
-			    "%jd", (intmax_t)sj->size);
-			Header_Set(sg->hdr, "WARC-Segment-Total-Length-GZIP",
-			    "%jd", (intmax_t)sj->gzsize);
-			rid = NULL;
-		} else {
-			rid = Header_Get_Id(sgn->hdr);
-		}
-
-		Header_Set(sg->hdr, "Content-Length", "%jd",
-		    (intmax_t)sg->size);
-
-		Wsilo_Commit(&sg->silo, 1, Header_Get_Id(sg->hdr), rid);
-	}
-	REPLACE(dig, NULL);
-	return (id);
+	return (sj);
 }
 
 void
@@ -385,4 +309,80 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 		}
 
 	} while (sj->gz->avail_in > 0 || ilen > 0);
+}
+
+char *
+SegJob_Commit(struct segjob *sj)
+{
+	char *dig, *id;
+	struct segment *sg, *sgn;
+	const char *rid;
+	struct getjob *gj;
+	struct vsb *vsb;
+
+	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
+	SegJob_Feed(sj, "", 0);
+	AN(sj->size);
+	dig = SHA256_End(sj->sha256_payload, NULL);
+	AN(dig);
+
+	sg = VTAILQ_FIRST(&sj->segments);
+	AN(sg);
+	if (sj->nseg > 1)
+		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", dig);
+
+	Ident_Create(sj->aa, sg->hdr, dig);
+
+	vsb = VSB_new_auto();
+	AN(vsb);
+	VSB_printf(vsb, "%s%s", sj->aa->prefix, Header_Get_Id(sg->hdr));
+	AZ(VSB_finish(vsb));
+	id = strdup(VSB_data(vsb));
+	AN(id);
+
+	VSB_clear(vsb);
+	gj = GetJob_New(sj->aa, dig, vsb);
+	if (gj != NULL) {
+		GetJob_Delete(&gj);
+		fprintf(stderr, "ID %s already in archive\n", dig);
+		REPLACE(dig, NULL);
+		segjob_destroy(sj);
+		return (id);
+	}
+
+	if (sj->nseg == 1) {
+		Header_Set(sg->hdr, "Content-Length",
+		    "%jd", (intmax_t)sg->size);
+
+		Wsilo_Commit(&sg->silo, 0, Header_Get_Id(sg->hdr), NULL);
+		REPLACE(dig, NULL);
+		segjob_destroy(sj);
+		return (id);
+	}
+
+	VTAILQ_FOREACH(sg, &sj->segments, list) {
+		if (sg->segno == 1)
+			Header_Set(sg->hdr, "WARC-Segment-Number", "1");
+
+		if (sg->segno > 1)
+			Header_Set_Ref(sg->hdr, "WARC-Segment-Origin-ID", dig);
+
+		sgn = VTAILQ_NEXT(sg, list);
+		if (sgn == NULL) {
+			Header_Set(sg->hdr, "WARC-Segment-Total-Length",
+			    "%jd", (intmax_t)sj->size);
+			Header_Set(sg->hdr, "WARC-Segment-Total-Length-GZIP",
+			    "%jd", (intmax_t)sj->gzsize);
+			rid = NULL;
+		} else {
+			rid = Header_Get_Id(sgn->hdr);
+		}
+
+		Header_Set(sg->hdr, "Content-Length", "%jd",
+		    (intmax_t)sg->size);
+
+		Wsilo_Commit(&sg->silo, 1, Header_Get_Id(sg->hdr), rid);
+	}
+	REPLACE(dig, NULL);
+	return (id);
 }
