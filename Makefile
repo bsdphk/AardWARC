@@ -56,3 +56,5 @@ flint:
 
 test:	${PROG}
 	cd tests && sh test00.sh
+	cd tests && sh test01.sh
+	cd tests && sh test02.sh
