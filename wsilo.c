@@ -47,6 +47,8 @@
 
 #include "aardwarc.h"
 
+#define PADDING_HEADER "z"
+
 struct wsilo {
 	unsigned		magic;
 #define WSILO_MAGIC		0x4a454db2
@@ -220,6 +222,9 @@ Wsilo_Header(struct wsilo *sl, struct header *hd, int pad)
 	CHECK_OBJ_NOTNULL(sl, WSILO_MAGIC);
 	AN(hd);
 	assert(pad >= 0);
+
+	if (pad > 0)
+		pad += Header_Len(PADDING_HEADER, "_");
 
 	sl->hd = hd;
 
@@ -482,7 +487,7 @@ Wsilo_Commit(struct wsilo **slp, int segd, const char *id, const char *rid)
 			AN(p);
 			memset(p, '_', i - 1);
 			p[i - 1] = '\0';
-			Header_Set(sl->hd, "z", "%s", p + 4);
+			Header_Set(sl->hd, PADDING_HEADER, "%s", p + 4);
 			REPLACE(p, NULL);
 
 			VSB_delete(vsb);

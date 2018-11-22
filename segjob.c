@@ -134,8 +134,7 @@ segjob_add(struct segjob *sj)
 	 * only find out at the end of segment/object.
 	 */
 
-	/* Make space for a minimal padding header */
-	i = strlen("z: _\r\n");
+	i = 0;
 
 	if (sj->nseg == 1) {
 		/* If we segment, first segment will get a number */
