@@ -106,7 +106,7 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	p = SHA256_Data(VSB_data(wi->body), VSB_len(wi->body), NULL);
 	Header_Set(wi->hdr, "WARC-Block-Digest", "sha256:%s", p);
 
-	Ident_Create(aa, wi->hdr, p);
+	Ident_Set(aa, wi->hdr, p);
 
 	REPLACE(p, NULL);
 

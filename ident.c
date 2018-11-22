@@ -43,11 +43,10 @@
 
 void
 Ident_Create(const struct aardwarc *aa, struct header *hdr,
-    const char *payload_digest)
+    const char *payload_digest, char *ident)
 {
 	const char *typ, *ref;
 	struct SHA256Context sha256[1];
-	char dig[SHA256_DIGEST_STRING_LENGTH];
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 	AN(hdr);
@@ -56,13 +55,13 @@ Ident_Create(const struct aardwarc *aa, struct header *hdr,
 	AN(typ);
 	if (!strcmp(typ, "resource")) {
 		/* We use the payload digest as ID */
-		strcpy(dig, payload_digest);
+		strcpy(ident, payload_digest);
 	} else if (!strcmp(typ, "continuation")) {
 		/* We use the payload digest as ID */
-		strcpy(dig, payload_digest);
+		strcpy(ident, payload_digest);
 	} else if (!strcmp(typ, "warcinfo")) {
 		/* We use the payload digest as ID */
-		strcpy(dig, payload_digest);
+		strcpy(ident, payload_digest);
 	} else if (!strcmp(typ, "metadata")) {
 		/* ID=SHA256(reference_id + "\n" + SHA256(body) + "\n") */
 		SHA256_Init(sha256);
@@ -72,14 +71,23 @@ Ident_Create(const struct aardwarc *aa, struct header *hdr,
 		SHA256_Update(sha256, "\n", 1);
 		SHA256_Update(sha256, payload_digest, strlen(payload_digest));
 		SHA256_Update(sha256, "\n", 1);
-		AN(SHA256_End(sha256, dig));
+		AN(SHA256_End(sha256, ident));
 	} else {
 		fprintf(stderr, "XXX %s\n", typ);
 		WRONG("Unknown WARC-Type");
 	}
 
-	dig[aa->id_size] = '\0';
-	Header_Set_Id(hdr, dig);
+	ident[aa->id_size] = '\0';
+}
+
+void
+Ident_Set(const struct aardwarc *aa, struct header *hdr,
+    const char *payload_digest)
+{
+	char id[SHA256_DIGEST_STRING_LENGTH];
+
+	Ident_Create(aa, hdr, payload_digest, id);
+	Header_Set_Id(hdr, id);
 }
 
 char *

@@ -137,8 +137,6 @@ audit_add_one_segment(struct aardwarc *aa, struct audit *ap0, struct audit *ap)
 	struct rsilo *rs;
 	off_t o2;
 
-	printf("ADD %s %d [%jd %jd]\n",
-	    ap->silo_fn, ap->silo_no, ap->o1, ap->o2);
 	ap0->gzsz += ap->o2 - ap->o1;
 
 	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no);
@@ -156,6 +154,7 @@ audit_final_pending(struct aardwarc *aa, struct vsb *err, struct audit *ap0,
 {
 	char buf[64];
 	char dig[SHA256_DIGEST_STRING_LENGTH];
+	char id[SHA256_DIGEST_STRING_LENGTH];
 
 	(void)aa;
 
@@ -168,7 +167,12 @@ audit_final_pending(struct aardwarc *aa, struct vsb *err, struct audit *ap0,
 	(void)SHA256_End(ap0->sha256, dig);
 	audit_check_digest_header(err, ap0, "WARC-Payload-Digest", dig);
 
-	// XXX: Checke ap0->WARC-Record-ID
+	Ident_Create(aa, ap0->hdr, dig, id);
+	if (strcmp(id, Header_Get_Id(ap0->hdr))) {
+		VSB_printf(err, "ERROR: %s difference\n", "WARC-Record-ID");
+		VSB_printf(err, "\tis:\t\t%s\n", Header_Get_Id(ap0->hdr));
+		VSB_printf(err, "\tshould be:\t%s\n", id);
+	}
 }
 
 static int
@@ -186,8 +190,7 @@ audit_one_pending(struct aardwarc *aa, struct vsb *err)
 	if (ap0 == NULL)
 		return (0);
 	VTAILQ_REMOVE(&segment_list, ap0, list);
-	printf("Auditing this segmented object:\n");
-	audit_report(NULL, ap0);
+	printf("Auditing this segmented object: %s\n", Header_Get_Id(ap0->hdr));
 	SHA256_Init(ap0->sha256);
 	ap0->sz = 0;
 	ap0->gzsz = 0;
@@ -197,7 +200,6 @@ audit_one_pending(struct aardwarc *aa, struct vsb *err)
 	ap = ap0;
 	do {
 		ap1 = ap;
-		printf("    >>>>\n");
 		VTAILQ_FOREACH_SAFE(apn, &segment_list, list, aps) {
 			CHECK_OBJ_NOTNULL(apn, AUDIT_MAGIC);
 			if (apn->segment != ap->segment + 1)
@@ -215,7 +217,6 @@ audit_one_pending(struct aardwarc *aa, struct vsb *err)
 			origin += strlen(oid);
 			if (*origin++ != '>')
 				continue;
-			audit_report(NULL, apn);
 			audit_add_one_segment(aa, ap0, apn);
 			VTAILQ_REMOVE(&segment_list, apn, list);
 			p = Header_Get(apn->hdr, "WARC-Segment-Total-Length");
@@ -242,7 +243,8 @@ audit_one_pending(struct aardwarc *aa, struct vsb *err)
 static int
 audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 {
-	char *oldid, *newid, *p;
+	char *oldid, *p;
+	char newid[SHA256_DIGEST_STRING_LENGTH];
 	char dig[SHA256_DIGEST_STRING_LENGTH];
 	char buf[64];
 	const char *is;
@@ -273,10 +275,7 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 		oldid = strdup(Header_Get_Id(ap->hdr));
 		AN(oldid);
 
-		Ident_Create(aa, ap->hdr, dig);
-		newid = strdup(Header_Get_Id(ap->hdr));
-		AN(newid);
-		Header_Set_Id(ap->hdr, oldid);
+		Ident_Create(aa, ap->hdr, dig, newid);
 
 		if (strcmp(oldid, newid)) {
 			VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
@@ -284,7 +283,6 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 			VSB_printf(err, "\tshould be:\t%s\n", newid);
 		}
 		free(oldid);
-		free(newid);
 	}
 
 	return (retval);

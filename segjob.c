@@ -189,7 +189,7 @@ segjob_finishseg(struct segjob *sj)
 	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", dig);
 	Header_Set(sg->hdr, "Content-Length", "%jd", (intmax_t)sg->size);
 	Header_Set(sg->hdr, "Content-Length-GZIP", "%jd", (intmax_t)sg->gzsize);
-	Ident_Create(sj->aa, sg->hdr, dig);
+	Ident_Set(sj->aa, sg->hdr, dig);
 	Wsilo_Finish(sg->silo);
 	REPLACE(dig, NULL);
 }
@@ -340,7 +340,7 @@ SegJob_Commit(struct segjob *sj)
 		id = SHA256_End(sj->sha256_payload, NULL);
 		AN(id);
 		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", id);
-		Ident_Create(sj->aa, sg->hdr, id);
+		Ident_Set(sj->aa, sg->hdr, id);
 		REPLACE(id, NULL);
 	}
 
