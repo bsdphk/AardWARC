@@ -336,6 +336,7 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 			if (ngood)
 				printf("(%d good entries)\n", ngood);
 			printf("%s", VSB_data(vsberr));
+			fflush(stdout);
 			audit_report(NULL, ap);
 			ngood = 0;
 		} else {
@@ -405,7 +406,7 @@ main_audit(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	err = VSB_new_auto();
 	AN(err);
 	while (audit_one_pending(aa, err))
-		continue;
+		fflush(stdout);
 	VTAILQ_FOREACH(ap, &segment_list, list) {
 		printf("Left on pending %d %jd %jd %d\n",
 		    ap->silo_no, ap->o1, ap->o2, ap->segment);
