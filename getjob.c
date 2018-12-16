@@ -62,6 +62,7 @@ struct getjob {
 	const char		*id;
 	struct vsb		*vsb;
 	struct aardwarc		*aa;
+	const char		*err;
 
 	struct getjobseg_head	segs;
 };
@@ -88,12 +89,26 @@ getjob_iter(void *priv, const char *key,
 	AN(hdr);
 
 	p = Header_Get_Id(hdr);
-	gjs = VTAILQ_LAST(&gj->segs, getjobseg_head);
-	if (gjs == NULL && strcasecmp(p, gj->id)){
+	if ((flag & IDX_F_WARCINFO) && !strcasecmp(p, gj->id)) {
+		gj->err = "ID is warcinfo segment";
 		Header_Destroy(&hdr);
 		Rsilo_Close(&rs);
-		return (0);
-	} else if (gjs != NULL) {
+		return (-1);
+	}
+	gjs = VTAILQ_LAST(&gj->segs, getjobseg_head);
+	if (gjs == NULL) {
+		if (strcasecmp(p, gj->id)) {
+			Header_Destroy(&hdr);
+			Rsilo_Close(&rs);
+			return (0);
+		}
+		if ((flag & IDX_F_SEGMENTED) && !(flag & IDX_F_FIRSTSEG)) {
+			gj->err = "ID is continuation segment";
+			Header_Destroy(&hdr);
+			Rsilo_Close(&rs);
+			return (-1);
+		}
+	} else {
 		p = Header_Get(hdr, "WARC-Segment-Origin-ID");
 		AN(p);
 		assert(p[0] == '<');
@@ -103,6 +118,10 @@ getjob_iter(void *priv, const char *key,
 		assert(p[gj->aa->id_size] == '>');
 		assert(p[gj->aa->id_size + 1L] == '\0');
 		if (strncasecmp(p, gj->id, gj->aa->id_size)) {
+			/*
+			 * The next field in the index can be ambiguous
+			 * but we just ignore the other ones.
+			 */
 			Header_Destroy(&hdr);
 			Rsilo_Close(&rs);
 			return (0);
@@ -111,9 +130,12 @@ getjob_iter(void *priv, const char *key,
 		assert(im >= 0);
 		segno = im;
 		if (segno != gjs->segno + 1) {
+			gj->err =
+			    "Index Inconsistency: "
+			    "Continuation out of order.";
 			Header_Destroy(&hdr);
 			Rsilo_Close(&rs);
-			return (0);
+			return (-1);
 		}
 	}
 
@@ -176,11 +198,13 @@ GetJob_New(struct aardwarc *aa, const char *id, struct vsb *vsb)
 	gj->aa = aa;
 	gj->id = nid;
 	gj->vsb = vsb;
+	gj->err = "ID not found";
 
 	while (1) {
 		i = IDX_Iter(aa, nid, getjob_iter, gj);
 		if (i <= 0) {
-			VSB_printf(vsb, "ID not found");
+			AN (gj->err);
+			VSB_printf(vsb, "%s", gj->err);
 			GetJob_Delete(&gj);
 			return (NULL);
 		}
