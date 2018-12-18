@@ -58,3 +58,10 @@ test:	${PROG}
 	cd tests && sh test00.sh
 	cd tests && sh test01.sh
 	cd tests && sh test02.sh
+
+t2:	${PROG}
+
+	./aardwarc -c mnt.conf audit /mnt/AA/0/00000000.warc.gz
+
+t3:
+	./aardwarc -c mnt.conf audit 

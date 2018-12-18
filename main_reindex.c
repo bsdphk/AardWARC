@@ -234,7 +234,7 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 		if (hdr == NULL)
 			break;
 
-		im = Header_Get_Number(hdr, "Content-Length-GZIP");
+		im = Header_Get_GZlen(hdr);
 		assert(im > 0);
 		gzlen = (off_t)im;
 		assert(im == (intmax_t)gzlen);
@@ -252,7 +252,8 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 		im = Header_Get_Number(hdr, "WARC-Segment-Number");
 		if (im < 0) {
 			segno = 0;
-			IDX_Insert(aa, Header_Get_Id(hdr), flg, silono, off, NULL);
+			IDX_Insert(aa, Header_Get_Id(hdr),
+			    flg, silono, off, NULL);
 		} else {
 			segno = (off_t)im;
 			got_seg(aa, hdr, flg, off, segno, silono);

@@ -246,7 +246,7 @@ GetJob_Iter(const struct getjob *gj, byte_iter_f *func, void *priv, int gzip)
 {
 	struct getjobseg *gjs;
 	uintmax_t um;
-	intmax_t l;
+	off_t ll;
 
 	CHECK_OBJ_NOTNULL(gj, GETJOB_MAGIC);
 	AN(func);
@@ -254,9 +254,8 @@ GetJob_Iter(const struct getjob *gj, byte_iter_f *func, void *priv, int gzip)
 	VTAILQ_FOREACH(gjs, &gj->segs, list) {
 		Rsilo_Seek(gjs->rs, gjs->body);
 		if (gzip) {
-			l = Header_Get_Number(gjs->hdr, "Content-Length-GZIP");
-			assert(l > 0);
-			um = Rsilo_ReadGZChunk(gjs->rs, l, func, priv);
+			ll = Header_Get_GZlen(gjs->hdr);
+			um = Rsilo_ReadGZChunk(gjs->rs, ll, func, priv);
 		} else {
 			um = Rsilo_ReadChunk(gjs->rs, func, priv);
 		}
@@ -277,7 +276,7 @@ GetJob_TotalLength(const struct getjob *gj, int gzip)
 	// XXX: ... also available in headers in last segment.
 	VTAILQ_FOREACH(gjs, &gj->segs, list) {
 		if (gzip)
-			im = Header_Get_Number(gjs->hdr, "Content-Length-GZIP");
+			im = Header_Get_GZlen(gjs->hdr);
 		else
 			im = Header_Get_Number(gjs->hdr, "Content-Length");
 		assert(im > 0);
@@ -325,10 +324,6 @@ GetJob_Headers(const struct getjob *gj)
 		p = Header_Get(gjl->hdr, "WARC-Segment-Total-Length");
 		AN(p);
 		Header_Set(hdr, "Content-Length", "%s", p);
-
-		p = Header_Get(gjl->hdr, "WARC-Segment-Total-Length-GZIP");
-		AN(p);
-		Header_Set(hdr, "Content-Length-GZIP", "%s", p);
 
 		p = Header_Get(gjs->hdr, "WARC-Payload-Digest");
 		AN(p);

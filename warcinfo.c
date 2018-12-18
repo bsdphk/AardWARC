@@ -118,7 +118,6 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	REPLACE(p, NULL);
 
 	Gzip_Vsb(&wi->body, 0);
-	Header_Set(wi->hdr, "Content-Length-GZIP", "%zd", VSB_len(wi->body));
 
 	vsb = Header_Serialize(wi->hdr, 0);
 	AN(vsb);

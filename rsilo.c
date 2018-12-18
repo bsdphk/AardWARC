@@ -154,6 +154,7 @@ Rsilo_ReadHeader(const struct rsilo *rs)
 	char		ibuf[ps];
 	char		obuf[ps + 1];
 	int		i;
+	uint64_t	gzl;
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 
@@ -171,9 +172,11 @@ Rsilo_ReadHeader(const struct rsilo *rs)
 	assert(i == Z_OK);
 
 	i = inflate(zs, 0);
-	assert(i == Z_STREAM_END);	// One page is enough for everybody...
+	xxxassert(i == Z_STREAM_END);	// One page is enough for everybody...
 
 	obuf[ps - zs->avail_out] = '\0';
+
+	gzl = Gzip_ReadAa(zs->next_in, zs->avail_in);
 
 	if (zs->avail_in > 0)
 		(void)lseek(rs->silo_fd, -(off_t)zs->avail_in, SEEK_CUR);
@@ -181,7 +184,7 @@ Rsilo_ReadHeader(const struct rsilo *rs)
 	i = inflateEnd(zs);
 	assert(i == Z_OK);
 
-	return (Header_Parse(rs->aa, obuf));
+	return (Header_Parse(rs->aa, obuf, (off_t)gzl));
 }
 
 /* Read a WARC body ---------------------------------------------------*/
@@ -198,6 +201,8 @@ Rsilo_ReadGZChunk(const struct rsilo *rs, off_t len,
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 	AN(func);
+
+	/* XXX: Substitute a gzip header without the Aa extra field? */
 
 	do {
 		sz = sizeof ibuf;

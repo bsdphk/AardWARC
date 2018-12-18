@@ -64,10 +64,6 @@ do
 	fgrep -q "Content-Length: $l3" _4
 	l3m=`stat -f '%z' _3m`
 	fgrep -q "Content-Length: $l3m" _4m
-	l5=`stat -f '%z' _5`
-	fgrep -q "Content-Length-GZIP: $l5" _6
-	l5m=`stat -f '%z' _5m`
-	fgrep -q "Content-Length-GZIP: $l5m" _6m
 
 	# Check Digest headers
 	s3=`sha256 < _3`
@@ -78,8 +74,6 @@ do
 	fgrep -q "WARC-Block-Digest: sha256:$s5" _6
 	s5m=`zcat _5m | sha256`
 	fgrep -q "WARC-Block-Digest: sha256:$s5m" _6m
-
-
 done
 
 echo "## $0 DONE"

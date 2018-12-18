@@ -292,9 +292,17 @@ Wsilo_Store(struct wsilo *sl, ssize_t len)
 void
 Wsilo_Finish(struct wsilo *sl)
 {
-	CHECK_OBJ_NOTNULL(sl, WSILO_MAGIC);
+	off_t a;
 
+	CHECK_OBJ_NOTNULL(sl, WSILO_MAGIC);
 	AN(sl->buf_ptr);
+
+	/* Write the gzip'ed length to the 'Aa' extra header */
+	a = lseek(sl->hold_fd, sl->hd_start + sl->hd_len, SEEK_SET);
+	assert(a == sl->hd_start + sl->hd_len);
+	Gzip_WriteAa(sl->hold_fd,
+	    sl->hold_len - (sl->hd_start + sl->hd_len + sizeof Gzip_crnlcrnl));
+
 	REPLACE(sl->buf_ptr, NULL);
 	sl->buf_len = 0;
 }

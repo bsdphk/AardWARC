@@ -158,9 +158,6 @@ audit_final_pending(struct aardwarc *aa, struct vsb *err, struct audit *ap0,
 
 	(void)aa;
 
-	bprintf(buf, "%jd", ap0->gzsz);
-	audit_check_header(err, apn, "WARC-Segment-Total-Length-GZIP", buf);
-
 	bprintf(buf, "%jd", ap0->sz);
 	audit_check_header(err, apn, "WARC-Segment-Total-Length", buf);
 
@@ -247,6 +244,7 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 	char newid[SHA256_DIGEST_STRING_LENGTH];
 	char dig[SHA256_DIGEST_STRING_LENGTH];
 	char buf[64];
+	uint64_t gzl;
 	const char *is;
 	int retval = 0;
 
@@ -258,8 +256,9 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 	bprintf(buf, "%jd", (intmax_t)ap->sz);
 	audit_check_header(err, ap, "Content-Length", buf);
 
-	bprintf(buf, "%jd", (intmax_t)(ap->o2 - ap->o1));
-	audit_check_header(err, ap, "Content-Length-GZIP", buf);
+	gzl = Header_Get_GZlen(ap->hdr);
+	if (gzl != (uintmax_t)(ap->o2 - ap->o1))
+		VSB_printf(err, "ERROR: Bad GZIP length\n");
 
 	is = Header_Get(ap->hdr, "WARC-Segment-Number");
 	if (is != NULL) {

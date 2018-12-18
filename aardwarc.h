@@ -99,6 +99,11 @@ struct vsb *GetJob_Headers(const struct getjob *);
 
 void Gzip_Vsb(struct vsb **, int level);
 extern const uint8_t Gzip_crnlcrnl[24];
+#ifdef Z_OK
+    void Gzip_AddAa(z_stream *);
+#endif
+uint64_t Gzip_ReadAa(const void *, size_t);
+void Gzip_WriteAa(int, uint64_t);
 
 /* header.c */
 
@@ -115,7 +120,8 @@ intmax_t Header_Get_Number(const struct header *, const char *);
 void Header_Set_Id(struct header *, const char *);
 void Header_Set_Date(struct header *);
 void Header_Set_Ref(struct header *, const char *name, const char *ref);
-struct header *Header_Parse(const struct aardwarc *, char *);
+struct header *Header_Parse(const struct aardwarc *, char *, off_t);
+off_t Header_Get_GZlen(const struct header *);
 const char *Header_Get(const struct header *, const char *name);
 
 /* ident.c */
@@ -185,9 +191,8 @@ int Silo_Iter(const struct aardwarc *, byte_iter_f *func, void *priv);
 struct rsilo *Rsilo_Open(struct aardwarc *, const char *fn, uint32_t nsilo);
 void Rsilo_Close(struct rsilo **);
 struct header *Rsilo_ReadHeader(const struct rsilo *);
-uintmax_t Rsilo_ReadChunk(const struct rsilo *, byte_iter_f *func, void *priv);
-int Rsilo_ReadGZChunk(const struct rsilo *, off_t len, byte_iter_f *func,
-    void *priv);
+uintmax_t Rsilo_ReadChunk(const struct rsilo *, byte_iter_f *, void *);
+int Rsilo_ReadGZChunk(const struct rsilo *, off_t, byte_iter_f *, void *);
 void Rsilo_Seek(const struct rsilo *, uint64_t o);
 off_t Rsilo_Tell(const struct rsilo *);
 void Rsilo_SkipCRNL(const struct rsilo *rs);
