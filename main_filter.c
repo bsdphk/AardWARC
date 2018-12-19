@@ -92,9 +92,8 @@ filter_s_check(const struct filt *fp, uint32_t silo, uint64_t offset,
 	const char *p;
 	int retval = 0;
 
-	rs = Rsilo_Open(fp->aa, NULL, silo);
+	rs = Rsilo_Open(fp->aa, NULL, silo, offset);
 	AN(rs);
-	Rsilo_Seek(rs, offset);
 	hdr = Rsilo_ReadHeader(rs);
 	AN(hdr);
 	p = Header_Get_Id(hdr);

@@ -82,9 +82,8 @@ getjob_iter(void *priv, const char *key,
 	CAST_OBJ_NOTNULL(gj, priv, GETJOB_MAGIC);
 	(void)key;
 
-	rs = Rsilo_Open(gj->aa, NULL, silo);
+	rs = Rsilo_Open(gj->aa, NULL, silo, offset);
 	AN(rs);
-	Rsilo_Seek(rs, offset);
 	hdr = Rsilo_ReadHeader(rs);
 	AN(hdr);
 

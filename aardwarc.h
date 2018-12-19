@@ -188,7 +188,8 @@ struct vsb *Silo_Filename(const struct aardwarc *, unsigned number, int hold);
 int Silo_Iter(const struct aardwarc *, byte_iter_f *func, void *priv);
 
 /* silo_read.c */
-struct rsilo *Rsilo_Open(struct aardwarc *, const char *fn, uint32_t nsilo);
+struct rsilo *Rsilo_Open(struct aardwarc *, const char *fn, uint32_t nsilo,
+    uint64_t off);
 void Rsilo_Close(struct rsilo **);
 struct header *Rsilo_ReadHeader(const struct rsilo *);
 uintmax_t Rsilo_ReadChunk(const struct rsilo *, byte_iter_f *, void *);

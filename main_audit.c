@@ -139,9 +139,8 @@ audit_add_one_segment(struct aardwarc *aa, struct audit *ap0, struct audit *ap)
 
 	ap0->gzsz += ap->o2 - ap->o1;
 
-	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no);
+	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no, ap->o1);
 	AN(rs);
-	Rsilo_Seek(rs, ap->o1);
 	(void)Rsilo_ReadChunk(rs, audit_iter, ap0);
 	o2 = Rsilo_Tell(rs);
 	assert(o2 == ap->o2);
@@ -300,7 +299,7 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	rs = Rsilo_Open(aa, fn, nsilo);
+	rs = Rsilo_Open(aa, fn, nsilo, 0);
 	if (rs == NULL)
 		return (-1);
 	printf("Audit silo %s #%d\n", fn, nsilo);

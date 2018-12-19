@@ -86,7 +86,7 @@ rsilo_open_fn(const char *fn, struct aardwarc *aa, uint32_t silono)
 }
 
 struct rsilo *
-Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo)
+Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo, uint64_t off)
 {
 	struct vsb *vsb = NULL;
 	struct rsilo *rs;
@@ -101,6 +101,8 @@ Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo)
 	} else {
 		rs = rsilo_open_fn(fn, aa, 0xffffffff);
 	}
+	if (rs != NULL)
+		Rsilo_Seek(rs, off);
 	return (rs);
 }
 

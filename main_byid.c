@@ -62,9 +62,8 @@ byid_iter(void *priv, const char *key,
 	(void)flag;
 	(void)cont;
 	// printf("%s 0x%08x %8u %12ju %s\n", key, flag, silo, offset, cont);
-	rs = Rsilo_Open(priv, NULL, silo);
+	rs = Rsilo_Open(priv, NULL, silo, offset);
 	AN(rs);
-	Rsilo_Seek(rs, offset);
 	hdr = Rsilo_ReadHeader(rs);
 	AN(hdr);
 	p = Header_Get_Id(hdr);

@@ -216,7 +216,7 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 
 	CAST_OBJ_NOTNULL(aa, priv, AARDWARC_MAGIC);
 
-	rs = Rsilo_Open(aa, fn, silono);
+	rs = Rsilo_Open(aa, fn, silono, 0);
 	if (rs == NULL)
 		return (-1);
 
