@@ -102,16 +102,18 @@ Gzip_AddAa(z_stream *gz)
  */
 
 void
-Gzip_WriteAa(int fd, uint64_t len)
+Gzip_WriteAa(int fd, int64_t len)
 {
 	ssize_t i;
 	uint8_t buf[sizeof gzip_head];
+
+	assert(len > 0);
 
 	/* Write the gzip'ed length to the 'Aa' extra header */
 	i = read(fd, buf, sizeof gzip_head);
 	assert(i == sizeof gzip_head);
 	assert(Gzip_GoodAa(buf, i));
-	le64enc(buf, len);
+	le64enc(buf, (uint64_t)len);
 	i = write(fd, buf, 8);
 	assert(i == 8);
 }
@@ -120,13 +122,16 @@ Gzip_WriteAa(int fd, uint64_t len)
  * Read the length from an Aa field
  */
 
-uint64_t
+int64_t
 Gzip_ReadAa(const void *p, size_t l)
 {
+	int64_t len;
 
 	assert(Gzip_GoodAa(p, l));
 	xxxassert(l >= sizeof sizeof gzip_head + 8);
-	return (le64dec((const uint8_t*)p + sizeof gzip_head));
+	len = (int64_t)le64dec((const uint8_t*)p + sizeof gzip_head);
+	assert(len > 0);
+	return (len);
 }
 
 /**********************************************************************/

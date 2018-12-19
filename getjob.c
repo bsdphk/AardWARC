@@ -51,7 +51,6 @@ struct getjobseg {
 	char			*idx_cont;
 
 	unsigned		segno;
-	off_t			body;
 };
 
 VTAILQ_HEAD(getjobseg_head, getjobseg);
@@ -69,7 +68,7 @@ struct getjob {
 
 static int v_matchproto_(idx_iter_f)
 getjob_iter(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
 {
 	struct getjob *gj;
 	const char *p;
@@ -146,7 +145,6 @@ getjob_iter(void *priv, const char *key,
 	gjs->idx_flag = flag;
 	gjs->idx_cont = strdup(cont);
 	gjs->segno = segno;
-	gjs->body = Rsilo_Tell(rs);
 	AN(gjs->idx_cont);
 	VTAILQ_INSERT_TAIL(&gj->segs, gjs, list);
 	return(1);
@@ -245,16 +243,13 @@ GetJob_Iter(const struct getjob *gj, byte_iter_f *func, void *priv, int gzip)
 {
 	struct getjobseg *gjs;
 	uintmax_t um;
-	off_t ll;
 
 	CHECK_OBJ_NOTNULL(gj, GETJOB_MAGIC);
 	AN(func);
 
 	VTAILQ_FOREACH(gjs, &gj->segs, list) {
-		Rsilo_Seek(gjs->rs, gjs->body);
 		if (gzip) {
-			ll = Header_Get_GZlen(gjs->hdr);
-			um = Rsilo_ReadGZChunk(gjs->rs, ll, func, priv);
+			um = Rsilo_ReadGZChunk(gjs->rs, func, priv);
 		} else {
 			um = Rsilo_ReadChunk(gjs->rs, func, priv);
 		}
@@ -275,7 +270,7 @@ GetJob_TotalLength(const struct getjob *gj, int gzip)
 	// XXX: ... also available in headers in last segment.
 	VTAILQ_FOREACH(gjs, &gj->segs, list) {
 		if (gzip)
-			im = Header_Get_GZlen(gjs->hdr);
+			im = Rsilo_BodyLen(gjs->rs);
 		else
 			im = Header_Get_Number(gjs->hdr, "Content-Length");
 		assert(im > 0);

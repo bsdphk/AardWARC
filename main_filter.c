@@ -84,7 +84,7 @@ usage_filter(const char *a0, const char *a00, const char *err)
 }
 
 static int
-filter_s_check(const struct filt *fp, uint32_t silo, uint64_t offset,
+filter_s_check(const struct filt *fp, uint32_t silo, int64_t offset,
     const char *key)
 {
 	struct rsilo *rs;
@@ -107,7 +107,7 @@ filter_s_check(const struct filt *fp, uint32_t silo, uint64_t offset,
 
 static int v_matchproto_(idx_iter_f)
 filter_iter(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
 {
 	struct cand *c;
 	struct filt *fp;

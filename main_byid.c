@@ -51,7 +51,7 @@ usage_byid(const char *a0, const char *a00, const char *err)
 
 static int v_matchproto_(idx_iter_f)
 byid_iter(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
 {
 	struct rsilo *rs;
 	struct header *hdr;

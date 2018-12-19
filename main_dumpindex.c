@@ -52,14 +52,14 @@ usage_dumpindex(const char *a0, const char *a00, const char *err)
 
 static int v_matchproto_(idx_iter_f)
 dumpindex_iter(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
 {
 	uint32_t *u;
 
 	u = priv;
 	if (*u != 0 && flag != *u)
 		return (0);
-	printf("%s 0x%08x %8u %12ju %s\n", key, flag, silo, offset, cont);
+	printf("%s 0x%08x %8u %12jd %s\n", key, flag, silo, offset, cont);
 	return(0);
 }
 

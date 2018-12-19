@@ -102,8 +102,8 @@ extern const uint8_t Gzip_crnlcrnl[24];
 #ifdef Z_OK
     void Gzip_AddAa(z_stream *);
 #endif
-uint64_t Gzip_ReadAa(const void *, size_t);
-void Gzip_WriteAa(int, uint64_t);
+int64_t Gzip_ReadAa(const void *, size_t);
+void Gzip_WriteAa(int, int64_t);
 
 /* header.c */
 
@@ -120,8 +120,8 @@ intmax_t Header_Get_Number(const struct header *, const char *);
 void Header_Set_Id(struct header *, const char *);
 void Header_Set_Date(struct header *);
 void Header_Set_Ref(struct header *, const char *name, const char *ref);
-struct header *Header_Parse(const struct aardwarc *, char *, off_t);
-off_t Header_Get_GZlen(const struct header *);
+struct header *Header_Parse(const struct aardwarc *, char *);
+//off_t Header_Get_GZlen(const struct header *);
 const char *Header_Get(const struct header *, const char *name);
 
 /* ident.c */
@@ -137,7 +137,7 @@ void IDX_Insert(const struct aardwarc *aa, const char *key, uint32_t flags,
     uint32_t silo, uint64_t offset, const char *cont);
 
 typedef int idx_iter_f(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont);
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont);
 
 int IDX_Iter(const struct aardwarc *aa, const char *key_part,
     idx_iter_f *func, void *priv);
@@ -189,14 +189,15 @@ int Silo_Iter(const struct aardwarc *, byte_iter_f *func, void *priv);
 
 /* silo_read.c */
 struct rsilo *Rsilo_Open(struct aardwarc *, const char *fn, uint32_t nsilo,
-    uint64_t off);
+    int64_t off);
 void Rsilo_Close(struct rsilo **);
-struct header *Rsilo_ReadHeader(const struct rsilo *);
-uintmax_t Rsilo_ReadChunk(const struct rsilo *, byte_iter_f *, void *);
-int Rsilo_ReadGZChunk(const struct rsilo *, off_t, byte_iter_f *, void *);
-void Rsilo_Seek(const struct rsilo *, uint64_t o);
+void Rsilo_NextHeader(struct rsilo *);
+struct header *Rsilo_ReadHeader(struct rsilo *);
+uintmax_t Rsilo_ReadChunk(struct rsilo *, byte_iter_f *, void *);
+int64_t Rsilo_BodyLen(const struct rsilo *);
+int Rsilo_ReadGZChunk(struct rsilo *, byte_iter_f *, void *);
 off_t Rsilo_Tell(const struct rsilo *);
-void Rsilo_SkipCRNL(const struct rsilo *rs);
+void Rsilo_SkipCRNL(struct rsilo *rs);
 
 /* silo_write.c */
 struct wsilo *Wsilo_New(struct aardwarc *);

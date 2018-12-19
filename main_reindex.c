@@ -121,7 +121,7 @@ try_seg(const struct aardwarc *aa, struct seg *seg)
 
 static int v_matchproto_(idx_iter_f)
 reindex_iter(void *priv, const char *key,
-    uint32_t flag, uint32_t silo, uint64_t offset, const char *cont)
+    uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
 {
 	struct seg *seg, *seg2;
 
@@ -209,7 +209,7 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 	struct aardwarc *aa;
 	struct rsilo *rs;
 	struct header *hdr;
-	off_t off, o2, gzlen, segno;
+	off_t off, segno;
 	intmax_t im;
 	uint32_t flg;
 	const char *p, *wt;
@@ -230,14 +230,8 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 	while (1) {
 		off = Rsilo_Tell(rs);
 		hdr = Rsilo_ReadHeader(rs);
-		o2 = Rsilo_Tell(rs);
 		if (hdr == NULL)
 			break;
-
-		im = Header_Get_GZlen(hdr);
-		assert(im > 0);
-		gzlen = (off_t)im;
-		assert(im == (intmax_t)gzlen);
 
 		flg = 0;
 		wt = Header_Get(hdr, "WARC-Type");
@@ -260,7 +254,7 @@ silo_iter(void *priv, const void *fn, ssize_t silono)
 		}
 
 		Header_Destroy(&hdr);
-		Rsilo_Seek(rs, o2 + gzlen + 24L);
+		Rsilo_NextHeader(rs);
 	}
 	Rsilo_Close(&rs);
 	IDX_Resort(aa);

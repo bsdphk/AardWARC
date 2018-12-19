@@ -53,9 +53,26 @@ struct rsilo {
 	char			*silo_fn;
 	int			silo_fd;
 
+	int64_t			silo_bodylen;
+
+	enum {
+	    RS_HEAD,
+	    RS_BODY,
+	    RS_CRLF}		silo_where;
 };
 
 /*---------------------------------------------------------------------*/
+
+static void
+rsilo_seek(const struct rsilo *rs, int64_t o)
+{
+	off_t o2;
+
+	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
+	assert(o >= 0);
+	o2 = lseek(rs->silo_fd, (off_t)o, SEEK_SET);
+	assert((int64_t)o2 == o);
+}
 
 /* Open a silo for reading --------------------------------------------*/
 
@@ -86,7 +103,7 @@ rsilo_open_fn(const char *fn, struct aardwarc *aa, uint32_t silono)
 }
 
 struct rsilo *
-Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo, uint64_t off)
+Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo, int64_t off)
 {
 	struct vsb *vsb = NULL;
 	struct rsilo *rs;
@@ -101,8 +118,10 @@ Rsilo_Open(struct aardwarc *aa, const char *fn, uint32_t nsilo, uint64_t off)
 	} else {
 		rs = rsilo_open_fn(fn, aa, 0xffffffff);
 	}
-	if (rs != NULL)
-		Rsilo_Seek(rs, off);
+	if (rs != NULL) {
+		rsilo_seek(rs, off);
+		rs->silo_where = RS_HEAD;
+	}
 	return (rs);
 }
 
@@ -136,30 +155,21 @@ Rsilo_Tell(const struct rsilo *rs)
 	return (o);
 }
 
-void
-Rsilo_Seek(const struct rsilo *rs, uint64_t o)
-{
-	off_t o2;
-
-	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
-	o2 = lseek(rs->silo_fd, (off_t)o, SEEK_SET);
-	assert((uint64_t)o2 == o);
-}
 
 /* Read a WARC header -------------------------------------------------*/
 
 struct header *
-Rsilo_ReadHeader(const struct rsilo *rs)
+Rsilo_ReadHeader(struct rsilo *rs)
 {
 	z_stream	zs[1];
 	int		ps = getpagesize();
 	char		ibuf[ps];
 	char		obuf[ps + 1];
 	int		i;
-	uint64_t	gzl;
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 
+	assert(rs->silo_where == RS_HEAD);
 	i = read(rs->silo_fd, ibuf, ps);
 	assert(i >= 0);
 	if (i == 0)
@@ -178,7 +188,7 @@ Rsilo_ReadHeader(const struct rsilo *rs)
 
 	obuf[ps - zs->avail_out] = '\0';
 
-	gzl = Gzip_ReadAa(zs->next_in, zs->avail_in);
+	rs->silo_bodylen = Gzip_ReadAa(zs->next_in, zs->avail_in);
 
 	if (zs->avail_in > 0)
 		(void)lseek(rs->silo_fd, -(off_t)zs->avail_in, SEEK_CUR);
@@ -186,14 +196,37 @@ Rsilo_ReadHeader(const struct rsilo *rs)
 	i = inflateEnd(zs);
 	assert(i == Z_OK);
 
-	return (Header_Parse(rs->aa, obuf, (off_t)gzl));
+	rs->silo_where = RS_BODY;
+	return (Header_Parse(rs->aa, obuf));
+}
+
+int64_t
+Rsilo_BodyLen(const struct rsilo *rs)
+{
+
+	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
+	assert(rs->silo_where == RS_BODY);
+	return(rs->silo_bodylen);
+}
+
+void
+Rsilo_NextHeader(struct rsilo *rs)
+{
+	off_t o;
+
+	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
+
+	assert(rs->silo_where == RS_BODY);
+	o = lseek(rs->silo_fd,
+	    rs->silo_bodylen + (off_t)sizeof Gzip_crnlcrnl, SEEK_CUR);
+	assert(o > 0);
+	rs->silo_where = RS_HEAD;
 }
 
 /* Read a WARC body ---------------------------------------------------*/
 
 int
-Rsilo_ReadGZChunk(const struct rsilo *rs, off_t len,
-    byte_iter_f *func, void *priv)
+Rsilo_ReadGZChunk(struct rsilo *rs, byte_iter_f *func, void *priv)
 {
 	int		ps = getpagesize();
 	ssize_t		sz;
@@ -203,13 +236,14 @@ Rsilo_ReadGZChunk(const struct rsilo *rs, off_t len,
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 	AN(func);
+	assert(rs->silo_where == RS_BODY);
 
 	/* XXX: Substitute a gzip header without the Aa extra field? */
 
 	do {
 		sz = sizeof ibuf;
-		if (sz > len)
-			sz = len;
+		if (sz > rs->silo_bodylen)
+			sz = rs->silo_bodylen;
 		sz = read(rs->silo_fd, ibuf, sz);
 		if (sz <= 0)
 			return(0);
@@ -217,15 +251,16 @@ Rsilo_ReadGZChunk(const struct rsilo *rs, off_t len,
 		j = func(priv, ibuf, sz);
 		if (j)
 			return(0);
-		len -= sz;
-	} while (len > 0);
+		rs->silo_bodylen -= sz;
+	} while (rs->silo_bodylen > 0);
+	rs->silo_where = RS_CRLF;
 	return (ll);
 }
 
 /* Read a WARC body ---------------------------------------------------*/
 
 uintmax_t
-Rsilo_ReadChunk(const struct rsilo *rs, byte_iter_f *func, void *priv)
+Rsilo_ReadChunk(struct rsilo *rs, byte_iter_f *func, void *priv)
 {
 	z_stream	zs[1];
 	int		ps = getpagesize();
@@ -235,7 +270,7 @@ Rsilo_ReadChunk(const struct rsilo *rs, byte_iter_f *func, void *priv)
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 	AN(func);
-	(void)priv;
+	assert(rs->silo_where == RS_BODY);
 
 	memset(zs, 0, sizeof zs);
 	i = inflateInit2(zs, 15 + 32);
@@ -263,6 +298,7 @@ Rsilo_ReadChunk(const struct rsilo *rs, byte_iter_f *func, void *priv)
 	if (zs->avail_in > 0)
 		(void)lseek(rs->silo_fd, -(off_t)zs->avail_in, SEEK_CUR);
 
+	rs->silo_where = RS_CRLF;
 	i = inflateEnd(zs);
 	assert(i == Z_OK);
 	if (j != 0)
@@ -272,18 +308,15 @@ Rsilo_ReadChunk(const struct rsilo *rs, byte_iter_f *func, void *priv)
 
 /* Read a CRNLCRNL separator ------------------------------------------*/
 
-static int v_matchproto_(byte_iter_f)
-rsilo_iter_crnlcrnl(void *priv, const void *ptr, ssize_t len)
-{
-	/* XXX: Should guard against multiple (and partial?) calls */
-	(void)priv;
-	assert(len == 4);
-	assert(!memcmp(ptr, "\r\n\r\n", 4));
-	return (0);
-}
-
 void
-Rsilo_SkipCRNL(const struct rsilo *rs)
+Rsilo_SkipCRNL(struct rsilo *rs)
 {
-	(void)Rsilo_ReadChunk(rs, rsilo_iter_crnlcrnl, NULL);
+	uint8_t buf[sizeof Gzip_crnlcrnl];
+	ssize_t i;
+
+	assert(rs->silo_where == RS_CRLF);
+	i = read(rs->silo_fd, buf, sizeof buf);
+	assert(i == sizeof buf);
+	assert(!memcmp(buf, Gzip_crnlcrnl, sizeof buf));
+	rs->silo_where = RS_HEAD;
 }

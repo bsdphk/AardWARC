@@ -57,7 +57,6 @@ struct header {
 	const struct aardwarc	*aa;
 	VTAILQ_HEAD(, hfield)	hfields;
 	char			*warc_record_id;
-	off_t			gzlen;
 };
 
 struct header *
@@ -264,14 +263,6 @@ Header_Get_Id(const struct header *hdr)
 	return (hdr->warc_record_id);
 }
 
-off_t
-Header_Get_GZlen(const struct header *hdr)
-{
-	CHECK_OBJ_NOTNULL(hdr, HEADER_MAGIC);
-
-	return (hdr->gzlen);
-}
-
 void
 Header_Set_Id(struct header *hdr, const char *id)
 {
@@ -323,7 +314,7 @@ Header_Set_Ref(struct header *hdr, const char *name, const char *ref)
 //lint -efunc(818, Header_Parse)
 
 struct header *
-Header_Parse(const struct aardwarc *aa, char *p, off_t gzl)
+Header_Parse(const struct aardwarc *aa, char *p)
 {
 	const char *q10 = "WARC/1.0\r\nWARC-Record-ID: <";
 	const char *q11 = "WARC/1.1\r\nWARC-Record-ID: <";
@@ -337,7 +328,6 @@ Header_Parse(const struct aardwarc *aa, char *p, off_t gzl)
 	AN(hdr);
 	VTAILQ_INIT(&hdr->hfields);
 	hdr->aa = aa;
-	hdr->gzlen = gzl;
 
 	assert(!memcmp(p, q10, strlen(q10)) || !memcmp(p, q11, strlen(q11)));
 	p = strchr(p, '\n');

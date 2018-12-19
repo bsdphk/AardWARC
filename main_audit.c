@@ -45,6 +45,8 @@
 struct audit {
 	unsigned		magic;
 #define AUDIT_MAGIC		0xce2bb3e2
+	int64_t			bodylen;
+	off_t			o0;
 	off_t			o1;
 	off_t			o2;
 	ssize_t			sz;
@@ -139,7 +141,8 @@ audit_add_one_segment(struct aardwarc *aa, struct audit *ap0, struct audit *ap)
 
 	ap0->gzsz += ap->o2 - ap->o1;
 
-	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no, ap->o1);
+	rs = Rsilo_Open(aa, ap->silo_fn, ap->silo_no, ap->o0);
+	(void)Rsilo_ReadHeader(rs);
 	AN(rs);
 	(void)Rsilo_ReadChunk(rs, audit_iter, ap0);
 	o2 = Rsilo_Tell(rs);
@@ -243,7 +246,6 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 	char newid[SHA256_DIGEST_STRING_LENGTH];
 	char dig[SHA256_DIGEST_STRING_LENGTH];
 	char buf[64];
-	uint64_t gzl;
 	const char *is;
 	int retval = 0;
 
@@ -255,8 +257,7 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 	bprintf(buf, "%jd", (intmax_t)ap->sz);
 	audit_check_header(err, ap, "Content-Length", buf);
 
-	gzl = Header_Get_GZlen(ap->hdr);
-	if (gzl != (uintmax_t)(ap->o2 - ap->o1))
+	if (ap->bodylen != (ap->o2 - ap->o1))
 		VSB_printf(err, "ERROR: Bad GZIP length\n");
 
 	is = Header_Get(ap->hdr, "WARC-Segment-Number");
@@ -312,11 +313,13 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 		AN(ap);
 		ap->silo_fn = fn;
 		ap->silo_no = nsilo;
+		ap->o0 = Rsilo_Tell(rs);
 		ap->hdr = Rsilo_ReadHeader(rs);
 		if (ap->hdr == NULL) {
 			FREE_OBJ(ap);
 			break;
 		}
+		ap->bodylen = Rsilo_BodyLen(rs);
 
 		ap->o1 = Rsilo_Tell(rs);
 

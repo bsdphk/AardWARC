@@ -406,6 +406,7 @@ IDX_Iter(const struct aardwarc *aa, const char *key_part,
 	const struct idxfiles *idf;
 	uint8_t key_p[KEYSUMM];
 	uint8_t rec[32];
+	int64_t off;
 	char key[25];
 	char cont[9];
 	int i, j;
@@ -457,8 +458,10 @@ IDX_Iter(const struct aardwarc *aa, const char *key_part,
 
 			bprintf(cont, "%08x", be32dec(rec + 28));
 
+			off = (int64_t)be64dec(rec + 20);
+			assert(off >= 0);
 			i = func(priv, key, be32dec(rec + 12),
-			    be32dec(rec + 16), be64dec(rec + 20), cont);
+			    be32dec(rec + 16), off, cont);
 		} while (i == 0);
 		AZ(fclose(f));
 		if (i)
