@@ -301,7 +301,7 @@ Wsilo_Finish(struct wsilo *sl)
 	a = lseek(sl->hold_fd, sl->hd_start + sl->hd_len, SEEK_SET);
 	assert(a == sl->hd_start + sl->hd_len);
 	Gzip_WriteAa(sl->hold_fd,
-	    sl->hold_len - (sl->hd_start + sl->hd_len + sizeof Gzip_crnlcrnl));
+	    sl->hold_len - (sl->hd_start + sl->hd_len + (off_t)sizeof Gzip_crnlcrnl));
 
 	REPLACE(sl->buf_ptr, NULL);
 	sl->buf_len = 0;
