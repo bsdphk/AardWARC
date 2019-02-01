@@ -190,8 +190,7 @@ Rsilo_ReadHeader(struct rsilo *rs)
 
 	rs->silo_bodylen = Gzip_ReadAa(zs->next_in, zs->avail_in);
 
-	if (zs->avail_in > 0)
-		(void)lseek(rs->silo_fd, -(off_t)zs->avail_in, SEEK_CUR);
+	(void)lseek(rs->silo_fd, -(off_t)zs->avail_in, SEEK_CUR);
 
 	i = inflateEnd(zs);
 	assert(i == Z_OK);
