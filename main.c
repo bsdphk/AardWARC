@@ -113,7 +113,7 @@ call_main(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			break;
 	if (mp->name == NULL) {
 		usage(a0, "Unknown operation");
-		return (2);
+		return (1);
 	}
 	if (aa->json && !mp->json) {
 		usage(a0, "This subcommand does not do JSON.");
@@ -140,7 +140,7 @@ main(int argc, char **argv)
 		switch(ch) {
 		case 'h':
 			usage(a0, NULL);
-			exit(2);
+			exit(1);
 			break;
 		case 'j':
 			json = 1;
@@ -150,7 +150,7 @@ main(int argc, char **argv)
 			break;
 		default:
 			usage(a0, "Unknown global option error");
-			exit(2);
+			exit(1);
 			break;
 		}
 	}
@@ -162,7 +162,7 @@ main(int argc, char **argv)
 
 	if (argc == 0) {
 		usage(a0, "Need command argument");
-		exit (2);
+		exit (1);
 	}
 
 	/* Open and parse our configuration ---------------------------*/

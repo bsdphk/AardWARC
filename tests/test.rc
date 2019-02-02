@@ -3,7 +3,8 @@
 set -e
 
 AA=../aardwarc
-ADIR=`pwd`/_test
+ADIR=${TMPDIR-/tmp}/_test_aardward
+mkdir -p ${ADIR}
 AXEC="${AA} -c ${ADIR}/aardwarc.conf"
 
 new_aardwarc() (
@@ -32,6 +33,31 @@ new_aardwarc() (
 	echo ""
 	echo "metadata.mime-types:"
 	echo "		text/plain"
+	echo "		application/json"
+	echo ""
 	) > ${ADIR}/aardwarc.conf
 
 )
+
+fail ( ) (
+	expect=$1
+	shift
+	pattern=$1
+	shift
+	echo "#### $0 '$*'"
+	set +e
+	$* > ${ADIR}/_ 2>&1
+	status=$?
+	set -e
+	if [ $status -ne $expect ] ; then
+		echo "#### $0 Expected status $expect got status $status"
+		sed 's/^/	/' ${ADIR}/_
+		exit 1
+	fi
+	if ! grep -q "$pattern" ${ADIR}/_ ; then
+		echo "#### $0 pattern $pattern not found in"
+		sed 's/^/	/' ${ADIR}/_
+		exit 1
+	fi
+)
+

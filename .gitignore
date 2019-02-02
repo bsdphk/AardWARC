@@ -1,5 +1,10 @@
 .depend*
 *.o
+*.gcno
+*.gcda
+*.gcov
 aardwarc
 aardwarc.debug
 aardwarc.full
+_.coverage.raw
+_.coverage.txt

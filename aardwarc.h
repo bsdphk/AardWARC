@@ -162,7 +162,7 @@ const char *IDX_Valid_Id(const struct aardwarc *,
 /* proto.c */
 
 int proto_in(int fd, unsigned *cmd, unsigned *len);
-int proto_out(int fd, unsigned cmd, const void *ptr, size_t len);
+void proto_out(int fd, unsigned cmd, const void *ptr, size_t len);
 void proto_send_msg(int fd, const char *fmt, ...) v_printflike_(2,3);
 
 typedef void proto_ev_func_f(int fd, void *priv, int revents);

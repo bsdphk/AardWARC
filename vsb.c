@@ -494,6 +494,8 @@ VSB_destroy(struct vsb **s)
 	*s = NULL;
 }
 
+#ifdef VSB_UNUSED
+
 /*
  * Quote a string
  */
@@ -626,3 +628,4 @@ VSB_indent(struct vsb * s, int i)
 	else
 		s->s_indent += i;
 }
+#endif // VSB_UNUSED

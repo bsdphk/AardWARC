@@ -315,9 +315,12 @@ diag(int fd, void *priv, int revents)
 		buf[i] = '\0';
 		fprintf(stderr, "DIAG: <%s>\n", buf);
 	} else {
+		if (stevedore_0_ev)
+			proto_del_ev(&stevedore_0_ev);
+		if (stevedore_1_ev)
+			proto_del_ev(&stevedore_1_ev);
 		proto_del_ev(&stevedore_2_ev);
 	}
-	return;
 }
 
 /**********************************************************************/
@@ -337,14 +340,14 @@ metafile(const struct stow_job *sj, int fd, struct vsb *vsb, FILE *f)
 
 	AZ(fseeko(sj->changed, 0, SEEK_SET));
 	AZ(VSB_finish(vsb));
-	AZ(proto_out(fd, PROTO_META, VSB_data(vsb), VSB_len(vsb)));
+	proto_out(fd, PROTO_META, VSB_data(vsb), VSB_len(vsb));
 	VSB_clear(vsb);
 	(void)fgetc(f);
 	(void)fgetc(f);
 	do {
 		sz = fread(buf, 1, sizeof buf, f);
 		if (sz > 0)
-			AZ(proto_out(fd, PROTO_META, buf, sz));
+			proto_out(fd, PROTO_META, buf, sz);
 	} while (sz > 0);
 }
 
@@ -354,8 +357,8 @@ send_metadata(struct stow_job *sj, int fd)
 	struct vsb *vsb;
 	time_t t;
 
-	AZ(proto_out(fd, PROTO_META,
-	    sj->meta->digest, strlen(sj->meta->digest)));
+	proto_out(fd, PROTO_META,
+	    sj->meta->digest, strlen(sj->meta->digest));
 
 	vsb = VSB_new_auto();
 	AN(vsb);
@@ -385,8 +388,8 @@ send_metadata(struct stow_job *sj, int fd)
 	VSB_printf(vsb, "    }\n]\n");
 
 	AZ(VSB_finish(vsb));
-	AZ(proto_out(fd, PROTO_META, VSB_data(vsb), VSB_len(vsb)));
-	AZ(proto_out(fd, PROTO_META, NULL, 0));
+	proto_out(fd, PROTO_META, VSB_data(vsb), VSB_len(vsb));
+	proto_out(fd, PROTO_META, NULL, 0);
 	sj->meta = NULL;
 }
 
@@ -491,6 +494,7 @@ data_resp(struct stow_job *sj, char *p, size_t len)
 	free(cp->digest);
 	free(cp->filename);
 	FREE_OBJ(cp);
+	proto_ctl_ev(stevedore_0_ev, 1);
 }
 
 static void v_matchproto_(proto_ev_func_f)
@@ -553,6 +557,11 @@ stevedore_out(int fd, void *priv, int revents)
 	struct stow_job *sj;
 
 	CAST_OBJ_NOTNULL(sj, priv, STOW_JOB_MAGIC);
+	if (revents & POLLHUP) {
+		fprintf(stderr, "Lost connection to stevedore\n");
+		proto_ctl_ev(stevedore_0_ev, 0);
+		return;
+	}
 	(void)revents;
 	for (i = 0; i < 10; i++) {
 		cp = VTAILQ_FIRST(&subj_list);
@@ -563,12 +572,12 @@ stevedore_out(int fd, void *priv, int revents)
 		j = strlen(cp->digest);
 		if (j > sj->id_size)
 			j = sj->id_size;
-		AZ(proto_out(fd, PROTO_FILTER, cp->digest, j));
+		proto_out(fd, PROTO_FILTER, cp->digest, j);
 	}
 	if (send_fd > 0) {
 		i = read(send_fd, buf, sizeof buf);
 		assert(i >= 0);
-		AZ(proto_out(fd, PROTO_DATA, buf, i));
+		proto_out(fd, PROTO_DATA, buf, i);
 		if (i > 0)
 			return;
 		assert(send_fd > 2);
@@ -608,12 +617,11 @@ stevedore_out(int fd, void *priv, int revents)
 			exit(2);
 		}
 	}
-	if (sj->meta != NULL) {
+	if (sj->meta != NULL)
 		send_metadata(sj, fd);
-		AN(stevedore_0_ev);
-		proto_ctl_ev(stevedore_0_ev, 0);
-		return;
-	}
+
+	AN(stevedore_0_ev);
+	proto_ctl_ev(stevedore_0_ev, 0);
 }
 
 static void
@@ -640,7 +648,7 @@ start_stevedore(struct stow_job *sj)
 			AZ(execlp("ssh", "ssh", "-C",
 			    sj->c_remote, sj->c_cmd, NULL));
 		else
-			AZ(execlp("/bin/sh", "/bin/sh", "-c", sj->c_cmd, NULL));
+			AZ(execlp("/bin/sh", "/bin/sh", "-ec", sj->c_cmd, NULL));
 		exit(2);
 	}
 	assert(pid > 0);
@@ -726,11 +734,7 @@ main_stow(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		}
 		if (ch == EINVAL)
 			exit(1);
-		if (ch != 0) {
-			fprintf(stderr,
-			    "Job %s had config error %d\n", *argv, errno);
-			exit(1);
-		}
+		AZ(ch);
 		if (sj->c_directory == NULL) {
 			fprintf(stderr,
 			    "Job %s have no directory config\n", *argv);
@@ -759,9 +763,13 @@ main_stow(const char *a0, struct aardwarc *aa, int argc, char **argv)
 
 		pid = wait4(ssh_pid, &st, WEXITED, NULL);
 		assert(pid == ssh_pid);
-		if (st != 0)
-			printf("SSH status 0x%x\n", st);
-		AZ(st);
+		if (st != 0) {
+			fprintf(stderr,
+			    "(Remote) command failed,"
+			    " status=%d sig=%d core=%d\n",
+			    WEXITSTATUS(st), WTERMSIG(st), WCOREDUMP(st));
+			exit(2);
+		}
 
 		fprintf(stderr, "Done job %s\n", sj->job);
 	}

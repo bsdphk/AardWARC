@@ -45,8 +45,10 @@
  *
  */
 
+#include <errno.h>
 #include <poll.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -200,7 +202,7 @@ proto_in(int fd, unsigned *cmd, unsigned *len)
 	return (1);
 }
 
-int
+void
 proto_out(int fd, unsigned cmd, const void *ptr, size_t len)
 {
 	uint8_t u[5];
@@ -231,11 +233,11 @@ proto_out(int fd, unsigned cmd, const void *ptr, size_t len)
 		iov[0].iov_len += 4;
 	}
 	sz = writev(fd, iov, len == 0 ? 1 : 2);
-	if (sz < 0)
-		return (-1);
-	if ((size_t)sz != iov[0].iov_len + iov[1].iov_len)
-		return (-1);
-	return (0);
+	if ((size_t)sz != iov[0].iov_len + iov[1].iov_len) {
+		fprintf(stderr, "Write error to/from stevedore: %s\n",
+		    strerror(errno));
+		exit(3);
+	}
 }
 
 void
@@ -250,7 +252,7 @@ proto_send_msg(int fd, const char *fmt, ...)
 	VSB_vprintf(vsb, fmt, ap);
 	va_end(ap);
 	AZ(VSB_finish(vsb));
-	AZ(proto_out(fd, 0, VSB_data(vsb), VSB_len(vsb)));
+	proto_out(fd, 0, VSB_data(vsb), VSB_len(vsb));
 }
 
 

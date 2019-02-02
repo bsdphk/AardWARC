@@ -176,7 +176,7 @@ filter_line(void *priv, const char *line)
 	jp->filter_skip = 0;
 	i = strlen(line);
 	assert(i >= 16 && i <= 64);
-	AZ(proto_out(1, PROTO_FILTER, line, g_aa->id_size));
+	proto_out(1, PROTO_FILTER, line, g_aa->id_size);
 	return (0);
 }
 
@@ -190,7 +190,7 @@ filter_end(struct job *jp)
 
 	if (jp->filter_skip) {
 		be32enc(buf, jp->filter_skip);
-		AZ(proto_out(1, PROTO_FILTER, buf, sizeof buf));
+		proto_out(1, PROTO_FILTER, buf, sizeof buf);
 	}
 	job_end(jp);
 	if (!VTAILQ_EMPTY(&filter_queue))
@@ -213,7 +213,7 @@ start_filter(void)
 			break;
 		VTAILQ_REMOVE(&filter_queue, f, list);
 		FREE_OBJ(f);
-		AZ(proto_out(1, PROTO_FILTER, NULL, 0));
+		proto_out(1, PROTO_FILTER, NULL, 0);
 	}
 	AZ(filter_job);
 	filter_job = job_start(filter_line, filter_end, "filter", "-", NULL);
@@ -245,7 +245,7 @@ store_line(void *priv, const char *line)
 	struct job *jp;
 
 	CAST_OBJ_NOTNULL(jp, priv, JOB_MAGIC);
-	AZ(proto_out(1, PROTO_DATA, line, strlen(line)));
+	proto_out(1, PROTO_DATA, line, strlen(line));
 	proto_ctl_ev(stdin_ev, 1);
 	return (0);
 }
@@ -275,7 +275,7 @@ meta_line(void *priv, const char *line)
 	struct job *jp;
 
 	CAST_OBJ_NOTNULL(jp, priv, JOB_MAGIC);
-	AZ(proto_out(1, PROTO_META, line, strlen(line)));
+	proto_out(1, PROTO_META, line, strlen(line));
 	proto_ctl_ev(stdin_ev, 1);
 	return (0);
 }

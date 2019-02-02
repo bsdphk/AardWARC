@@ -37,9 +37,12 @@ LDADD	+=	-lz
 
 CFLAGS	+=	-O0 -g -DGITREV=`git log -n 1 '--format=format:"%h"'`
 
+CFLAGS	+=	-fprofile-arcs -ftest-coverage
+COVFILES =	*.gcov *.gcda *.gcno _.coverage.txt _.coverage.raw
+
 WARNS	?=	6
 
-CLEANFILES	+=	*.gcov *.gcda *.gcno
+CLEANFILES	+=	${COVFILES}
 
 MK_MAN	=	no
 
@@ -55,9 +58,14 @@ flint:
 		${SRCS}
 
 test:	${PROG}
+	rm -f *.gcda *.gcov
 	cd tests && sh test00.sh
 	cd tests && sh test01.sh
 	cd tests && sh test02.sh
+	cd tests && sh test03.sh
+	cd tests && sh test04.sh
+	llvm-cov gcov -f ${SRCS} | tee _.coverage.raw | \
+	    python3 tests/gcov_report.py | tee _.coverage.txt | tail -4
 
 t2:	${PROG}
 
