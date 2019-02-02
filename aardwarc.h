@@ -128,7 +128,8 @@ const char *Header_Get(const struct header *, const char *name);
 
 void Ident_Create(const struct aardwarc *, const struct header *,
     const char *, char *ident);
-void Ident_Set(const struct aardwarc *, struct header *, const char *);
+void Ident_Set(const struct aardwarc *, struct header *,
+    const char *, const char *);
 char *Digest2Ident(const struct aardwarc *, const char *);
 
 /* index.c */
@@ -179,7 +180,8 @@ void proto_dispatch_evs(void);
 
 /* segment.c */
 
-struct segjob *SegJob_New(struct aardwarc *, const struct header *);
+struct segjob *SegJob_New(struct aardwarc *, const struct header *,
+    const char *);
 void SegJob_Feed(struct segjob *, const void *ptr, ssize_t len);
 char *SegJob_Commit(struct segjob *);
 

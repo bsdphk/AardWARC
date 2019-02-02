@@ -82,12 +82,18 @@ Ident_Create(const struct aardwarc *aa, const struct header *hdr,
 
 void
 Ident_Set(const struct aardwarc *aa, struct header *hdr,
-    const char *payload_digest)
+    const char *digest, const char *input)
 {
 	char id[SHA256_DIGEST_STRING_LENGTH];
 
-	Ident_Create(aa, hdr, payload_digest, id);
-	Header_Set_Id(hdr, id);
+	assert(input == NULL || IDX_Valid_Id(aa, input, NULL) == NULL);
+
+	if (input == NULL) {
+		Ident_Create(aa, hdr, digest, id);
+		Header_Set_Id(hdr, id);
+	} else {
+		Header_Set_Id(hdr, input);
+	}
 }
 
 char *

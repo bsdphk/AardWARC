@@ -100,7 +100,8 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	AZ(Config_Iter(aa->cfg, "warcinfo.body", wi, c_iter));
 	VSB_printf(wi->body, "format: WARC file version 1.1\r\n");
 	VSB_printf(wi->body, "conformsTo: %s\r\n",
-	    "http://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/");
+	    "http://iipc.github.io/warc-specifications/"
+	    "specifications/warc-format/warc-1.1/");
 	VSB_printf(wi->body, "software: %s (%s)\r\n",
 	    "https://github.com/bsdphk/AardWARC", GITREV);
 	AZ(VSB_finish(wi->body));
@@ -113,7 +114,7 @@ Warcinfo_New(const struct aardwarc *aa, struct wsilo *wsl, uint32_t silono)
 	p = SHA256_Data(VSB_data(wi->body), VSB_len(wi->body), NULL);
 	Header_Set(wi->hdr, "WARC-Block-Digest", "sha256:%s", p);
 
-	Ident_Set(aa, wi->hdr, p);
+	Ident_Set(aa, wi->hdr, p, NULL);
 
 	REPLACE(p, NULL);
 

@@ -65,6 +65,7 @@ struct segjob {
 
 	struct aardwarc		*aa;
 	const struct header	*hdr;
+	const char		*ident;
 
 	int			nseg;
 	VTAILQ_HEAD(,segment)	segments;
@@ -185,13 +186,13 @@ segjob_finishseg(struct segjob *sj)
 	AN(dig);
 	Header_Set(sg->hdr, "WARC-Block-Digest", "sha256:%s", dig);
 	Header_Set(sg->hdr, "Content-Length", "%jd", (intmax_t)sg->size);
-	Ident_Set(sj->aa, sg->hdr, dig);
+	Ident_Set(sj->aa, sg->hdr, dig, sg->segno == 1 ? sj->ident : NULL);
 	Wsilo_Finish(sg->silo);
 	REPLACE(dig, NULL);
 }
 
 struct segjob *
-SegJob_New(struct aardwarc *aa, const struct header *hdr)
+SegJob_New(struct aardwarc *aa, const struct header *hdr, const char *ident)
 {
 	struct segjob *sj;
 
@@ -204,6 +205,7 @@ SegJob_New(struct aardwarc *aa, const struct header *hdr)
 	AZ(Header_Get(hdr, "WARC-Payload-Digest"));
 	AZ(Header_Get(hdr, "WARC-Segment-Origin-ID"));
 	AZ(Header_Get(hdr, "WARC-Segment-Total-Length"));
+	assert(ident == NULL || IDX_Valid_Id(aa, ident, NULL) == NULL);
 
 	ALLOC_OBJ(sj, SEGJOB_MAGIC);
 	AN(sj);
@@ -212,6 +214,7 @@ SegJob_New(struct aardwarc *aa, const struct header *hdr)
 	SHA256_Init(sj->sha256_payload);
 	sj->aa = aa;
 	sj->hdr = hdr;
+	sj->ident = ident;
 
 	return (sj);
 }
@@ -335,7 +338,7 @@ SegJob_Commit(struct segjob *sj)
 		id = SHA256_End(sj->sha256_payload, NULL);
 		AN(id);
 		Header_Set(sg->hdr, "WARC-Payload-Digest", "sha256:%s", id);
-		Ident_Set(sj->aa, sg->hdr, id);
+		Ident_Set(sj->aa, sg->hdr, id, sj->ident);
 		REPLACE(id, NULL);
 	}
 

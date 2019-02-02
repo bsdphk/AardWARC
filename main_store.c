@@ -83,9 +83,10 @@ usage_store(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "\t%s [global options] %s [options] {filename|-}\n",
 	    a0, a00);
 	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "\t-i Forced identifier (metadata only)\n");
 	fprintf(stderr, "\t-m mime_type\n");
+	fprintf(stderr, "\t-r WARC-Refers-To: reference (metadata only)\n");
 	fprintf(stderr, "\t-t {metadata|resource}\n");
-	fprintf(stderr, "\t-r WARC-Refers-To: reference\n");
 }
 
 int v_matchproto_(main_f)
@@ -93,7 +94,7 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 {
 	int ch;
 	int fd = -1;
-	const char *wt = WT_RESOURCE;
+	const char *wt = NULL;
 	const char *mt = "application/octet-stream";
 	struct header *hdr;
 	struct getjob *gj;
@@ -101,6 +102,8 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	char *id;
 	const char *a00 = *argv;
 	char *ibuf_ptr;
+	const char *r_arg = NULL;
+	const char *i_arg = NULL;
 	const char *ref = NULL;
 	ssize_t ibuf_len, rlen;
 	struct vsb *vsb;
@@ -108,16 +111,23 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	while ((ch = getopt(argc, argv, "hm:t:r:")) != -1) {
+	while ((ch = getopt(argc, argv, "hi:m:t:r:")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_store(a0, a00, NULL);
 			exit(1);
+		case 'i':
+			i_arg = optarg;
+			break;
 		case 'm':
 			mt = optarg;
 			break;
 		case 't':
-			if (!strcasecmp(optarg, "resource"))
+			if (wt != NULL) {
+				usage_store(a0, a00,
+				    "More than one -t argument.");
+				exit(1);
+			} else if (!strcasecmp(optarg, "resource"))
 				wt = WT_RESOURCE;
 			else if (!strcasecmp(optarg, "metadata"))
 				wt = WT_METADATA;
@@ -127,15 +137,12 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			}
 			break;
 		case 'r':
-			e = IDX_Valid_Id(aa, optarg, NULL);
-			if (e != NULL) {
-				usage_store(a0, a00, e);
+			if (r_arg != NULL) {
+				usage_store(a0, a00,
+				    "More than one -r argument.");
 				exit(1);
 			}
-			if (strlen(optarg) == aa->id_size)
-				ref = Digest2Ident(aa, optarg);
-			else
-				ref = optarg;
+			r_arg = optarg;
 			break;
 		default:
 			usage_store(a0, a00, "Unknown option error.");
@@ -145,12 +152,44 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (wt == WT_METADATA && ref == NULL) {
-		fprintf(stderr, "Must specify -r ID for metadata\n");
-		exit(1);
-	} else if (wt != WT_METADATA && ref != NULL) {
-		fprintf(stderr, "Can only specify -r ID for metadata\n");
-		exit(1);
+	if (wt == NULL)
+		wt = WT_RESOURCE;
+
+	if (wt != WT_METADATA) {
+		if (r_arg != NULL) {
+			fprintf(stderr,
+			    "Can only specify -r ID for metadata\n");
+			exit(1);
+		}
+		if (i_arg != NULL) {
+			fprintf(stderr,
+			    "Can only specify -i ID for metadata\n");
+			exit(1);
+		}
+	}
+
+	if (wt == WT_METADATA) {
+		if (r_arg == NULL) {
+			fprintf(stderr, "Must specify -r ID for metadata\n");
+			exit(1);
+		}
+		if (i_arg != NULL) {
+			e = IDX_Valid_Id(aa, i_arg, NULL);
+			if (e != NULL) {
+				fprintf(stderr, "Illegal id (-i): %s\n", e);
+				exit(1);
+			}
+		}
+
+		e = IDX_Valid_Id(aa, r_arg, NULL);
+		if (e != NULL) {
+			usage_store(a0, a00, e);
+			exit(1);
+		}
+		if (strlen(optarg) == aa->id_size)
+			ref = Digest2Ident(aa, optarg);
+		else
+			ref = optarg;
 	}
 
 	/* Figure out the input file ----------------------------------*/
@@ -185,7 +224,6 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		exit(1);
 	}
 
-
 	/* Check the mime type ----------------------------------------*/
 
 	if (mime_type(aa, wt, mt))
@@ -212,7 +250,7 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		Header_Set(hdr, "WARC-Refers-To", "<%s>", ref);
 	}
 
-	sj = SegJob_New(aa, hdr);
+	sj = SegJob_New(aa, hdr, i_arg);
 	AN(sj);
 
 	SegJob_Feed(sj, ibuf_ptr, rlen);
