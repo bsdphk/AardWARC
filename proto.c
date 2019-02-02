@@ -166,6 +166,7 @@ proto_in(int fd, unsigned *cmd, unsigned *len)
 {
 	uint8_t u[129];
 	ssize_t i;
+	int j;
 
 	assert (fd >= 0);
 	AN(cmd);
@@ -191,9 +192,15 @@ proto_in(int fd, unsigned *cmd, unsigned *len)
 		*len = u[1];
 		break;
 	case 3:
-		i = read(fd, u + 1, 4);
-		if (i != 4)
-			return (-1);
+		/*
+		 * Reads can return short, but not empty, so this is
+		 * the most fool-proof way to receive 4 bytes.
+		 */
+		for (j = 1; j < 5; j++) {
+			i = read(fd, u + j, 1);
+			if (i != 1)
+				return (-1);
+		}
 		*len = be32dec(u + 1);
 		break;
 	default:
@@ -234,9 +241,8 @@ proto_out(int fd, unsigned cmd, const void *ptr, size_t len)
 	}
 	sz = writev(fd, iov, len == 0 ? 1 : 2);
 	if ((size_t)sz != iov[0].iov_len + iov[1].iov_len) {
-		fprintf(stderr, "Write error to/from stevedore: %s\n",
+		fprintf(stderr, "Write error on connection: %s\n",
 		    strerror(errno));
-		exit(3);
 	}
 }
 

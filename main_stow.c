@@ -645,7 +645,7 @@ start_stevedore(struct stow_job *sj)
 		assert(dup2(fde[1], 2) == 2);
 		closefrom(3);
 		if (sj->c_remote != NULL)
-			AZ(execlp("ssh", "ssh", "-C",
+			AZ(execlp("ssh", "ssh",
 			    sj->c_remote, sj->c_cmd, NULL));
 		else
 			AZ(execlp("/bin/sh", "/bin/sh", "-ec", sj->c_cmd, NULL));
