@@ -41,7 +41,7 @@ The implemented AardWARC index consists of two parts, a sorted list
 of 16 byte entries, and an unsorted "appendix" containing the most
 recently written items.
 
-Because the keys are well distriuted, lookups in the sorted index
+Because the keys are well distributed, lookups in the sorted index
 can go almost directly to the entry from the WARC-ID (see comments
 at the top of index.c for the "almost" part) and if not found there,
 the "appendix" is small enough to read sequentially.
