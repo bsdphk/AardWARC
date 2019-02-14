@@ -74,6 +74,7 @@ runtest:
 	cd tests && sh test02.sh
 	cd tests && sh test03.sh
 	cd tests && sh test04.sh
+	cd tests && sh test05.sh
 
 t2:	${PROG}
 

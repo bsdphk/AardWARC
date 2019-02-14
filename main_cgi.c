@@ -70,7 +70,7 @@ main_cgi(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	const char *p;
 	const char *id;
 	const char *ct;
-	int gzip = 1;
+	int gzip = 0;
 	off_t o;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
