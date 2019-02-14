@@ -35,20 +35,29 @@ LDADD	+=	-lmd
 LDADD	+=	-lm
 LDADD	+=	-lz
 
-CFLAGS	+=	-O0 -g -DGITREV=`git log -n 1 '--format=format:"%h"'`
+CFLAGS	+=	-DGITREV=`git log -n 1 '--format=format:"%h"'`
+CFLAGS	+=	${COVERAGE_FLAGS}
 
-CFLAGS	+=	-fprofile-arcs -ftest-coverage
 COVFILES =	*.gcov *.gcda *.gcno _.coverage.txt _.coverage.raw
 
 WARNS	?=	6
-
-CLEANFILES	+=	${COVFILES}
 
 MK_MAN	=	no
 
 DESTDIR	?=	/usr/local/bin
 
 .include <bsd.prog.mk>
+
+coverage:
+	make cleandir
+	rm -f ${COVFILES}
+	make depend
+	make COVERAGE_FLAGS="-O0 -g --coverage"
+	make runtest
+	llvm-cov gcov -f ${SRCS} | tee _.coverage.raw | \
+	    python3 tests/gcov_report.py | tee _.coverage.txt | tail -4
+	make clean all
+
 
 flint:
 	flexelint \
@@ -57,15 +66,14 @@ flint:
 		flint.lnt \
 		${SRCS}
 
-test:	${PROG}
-	rm -f *.gcda *.gcov
+test:	${PROG} runtest
+
+runtest:
 	cd tests && sh test00.sh
 	cd tests && sh test01.sh
 	cd tests && sh test02.sh
 	cd tests && sh test03.sh
 	cd tests && sh test04.sh
-	llvm-cov gcov -f ${SRCS} | tee _.coverage.raw | \
-	    python3 tests/gcov_report.py | tee _.coverage.txt | tail -4
 
 t2:	${PROG}
 
