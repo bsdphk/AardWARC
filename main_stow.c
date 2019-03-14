@@ -243,7 +243,7 @@ mtree_in(int fd, void *priv, int revents)
 	}
 	pid = wait4(sj->mtree_pid, &st, WEXITED, NULL);
 	assert(pid == sj->mtree_pid);
-	AZ(st);
+	XXXAZ(st);
 	printf("MTREE END\n");
 	proto_del_ev(&sj->mtree_ev);
 

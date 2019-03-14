@@ -39,6 +39,7 @@ CFLAGS	+=	-DGITREV=`git log -n 1 '--format=format:"%h"'`
 CFLAGS	+=	${COVERAGE_FLAGS}
 
 COVFILES =	*.gcov *.gcda *.gcno _.coverage.txt _.coverage.raw
+CLEANFILES +=	${COVFILES}
 
 WARNS	?=	6
 
@@ -50,14 +51,16 @@ DESTDIR	?=	/usr/local/bin
 
 coverage:
 	make cleandir
-	rm -f ${COVFILES}
+	rm -rf ${COVFILES} _.coverage
 	make depend
 	make COVERAGE_FLAGS="-O0 -g --coverage"
 	make runtest
 	llvm-cov gcov -f ${SRCS} | tee _.coverage.raw | \
-	    python3 tests/gcov_report.py | tee _.coverage.txt | tail -4
+	    python3 tests/gcov_report.py > _.coverage.txt
+	mkdir -p _.coverage
+	mv ${COVFILES} _.coverage
 	make clean all
-
+	tail -4 _.coverage/_.coverage.txt
 
 flint:
 	flexelint \
