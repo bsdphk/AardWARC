@@ -52,6 +52,16 @@ do
 	fail 1 'Unknown option' ${AXEC} $p -x
 done
 
+fail 2 'This subcommand does not do JSON' \
+	${AXEC} -j reindex
+
+# This will fail in two different ways, depending on if
+# it finds a config file somewhere or not.
+fail 1 '(No config file found, tried|Unknown operation)' \
+	env HOME=/nonexistent ${AA} xyzzy
+
+fail 2 'Cannot open' \
+	${AA} -c /dev/null xyzzy
 
 echo "#### $0 stow Argument and Usage code"
 fail 1 'Must specify' ${AXEC} stow 
@@ -78,9 +88,9 @@ fail 1 'More than one -i argument' \
 	${AXEC} store -t metadata -i 1 -i 1
 fail 1 'Must specify -r ID for metadata' \
 	${AXEC} store -t metadata -i 1
-fail 1 'Illegal id (-i):' \
+fail 1 'Illegal id .-i.:' \
 	${AXEC} store -t metadata -r foobar -i ____
-fail 1 'ID is invalid (non-hex characters)' \
+fail 1 'ID is invalid .non-hex characters.' \
 	${AXEC} store -t metadata -r foobar 
 fail 1 'Too many input files' \
 	${AXEC} store -t resource a b 
@@ -96,7 +106,7 @@ fail 1 'Illegal mime-type' \
 	${AXEC} store -t metadata -m text/weird \
 	-r `sha256 < ../main_store.c | cut -c1-32` test.rc
 
-fail 1 'Referenced (-r) ID does not exist' \
+fail 1 'Referenced .-r. ID does not exist' \
 	${AXEC} store -t metadata -m text/plain \
 	-i 00000000000000000000000000000000 \
 	-r 00000000000000000000000000000001 test.rc
@@ -105,7 +115,7 @@ fail 1 'Referenced (-r) ID does not exist' \
 m=`${AXEC} dumpindex | awk '$2 == "0x00000002" {print $1 ; exit(0)}'`
 mm=`${AXEC} byid $m | awk '{print $2}'`
 
-fail 1 'Referenced (-r) ID does not exist' \
+fail 1 'Referenced .-r. ID does not exist' \
 	${AXEC} store -t metadata -m text/plain \
 	-i 00000000000000000000000000000000 \
 	-r "$mm" test.rc

@@ -54,7 +54,7 @@ fail ( ) (
 		sed 's/^/	/' ${ADIR}/_
 		exit 1
 	fi
-	if ! grep -q "$pattern" ${ADIR}/_ ; then
+	if ! egrep -q "$pattern" ${ADIR}/_ ; then
 		echo "#### $0 pattern $pattern not found in"
 		sed 's/^/	/' ${ADIR}/_
 		exit 1

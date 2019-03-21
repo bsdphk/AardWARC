@@ -61,30 +61,27 @@ vas_f *VAS_Fail __attribute__((__noreturn__)) = pan_ic;
 
 /*---------------------------------------------------------------------*/
 
-// args is used by testrun.sh
-
 static const struct mains {
 	const char	*name;
 	main_f		*func;
 	int		json;
-	int		args;
 	const char	*line1;
 } mains[] = {
-#define MAIN(l,j,a,d) { #l, main_##l, j, a, d}
-	MAIN(audit,		0, 1,	"Audit silos"),
-	MAIN(byid,		0, 1,	"List entries by ID"),
-	MAIN(cgi,		0, 1,	"CGI service"),
-	MAIN(dumpindex,		0, 1,	"Dump index"),
-	MAIN(filter,		0, 1,	"Filter list of IDs"),
-	MAIN(get,		0, 1,	"Get record"),
-	MAIN(housekeeping,	0, 1,	"Do housekeeping"),
-	MAIN(info,		1, 0,	"Information about the archive"),
-	MAIN(reindex,		0, 1,	"Rebuild index"),
-	MAIN(stevedore,		0, 1,	"Act as server"),
-	MAIN(store,		0, 1,	"Store data"),
-	MAIN(stow,		0, 1,	"Stow data to remote server"),
-	MAIN(_testbytes,	0, 1,	"Bytes for tests"),
-	{ NULL,	NULL, 0, 0, NULL}
+#define MAIN(l,j,d) { #l, main_##l, j, d}
+	MAIN(audit,		0, "Audit silos"),
+	MAIN(byid,		0, "List entries by ID"),
+	MAIN(cgi,		0, "CGI service"),
+	MAIN(dumpindex,		0, "Dump index"),
+	MAIN(filter,		0, "Filter list of IDs"),
+	MAIN(get,		0, "Get record"),
+	MAIN(housekeeping,	0, "Do housekeeping"),
+	MAIN(info,		1, "Information about the archive"),
+	MAIN(reindex,		0, "Rebuild index"),
+	MAIN(stevedore,		0, "Act as server"),
+	MAIN(store,		0, "Store data"),
+	MAIN(stow,		0, "Stow data to remote server"),
+	MAIN(_testbytes,	0, "Bytes for tests"),
+	{ NULL,	NULL, 0, NULL}
 };
 
 void
