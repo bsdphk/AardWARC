@@ -117,6 +117,11 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			usage_store(a0, a00, NULL);
 			exit(1);
 		case 'i':
+			if (i_arg != NULL) {
+				usage_store(a0, a00,
+				    "More than one -i argument.");
+				exit(1);
+			}
 			i_arg = optarg;
 			break;
 		case 'm':

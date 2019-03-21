@@ -62,3 +62,29 @@ fail 1 'has unknown config' ${AXEC} stow test04_c
 
 echo "#### $0 stevedore Argument and Usage code"
 fail 1 'Usage' ${AXEC} stevedore xyz
+
+echo "#### $0 store Argument and Usage code"
+fail 1 'More than one -t argument' \
+	${AXEC} store -t resource -t metadata
+fail 1 'Illegal -t argument' \
+	${AXEC} store -t warcinfo
+fail 1 'Can only specify -r ID for metadata' \
+	${AXEC} store -t resource -r 1
+fail 1 'Can only specify -i ID for metadata' \
+	${AXEC} store -t resource -i 1
+fail 1 'More than one -r argument' \
+	${AXEC} store -t metadata -r 1 -r 2
+fail 1 'More than one -i argument' \
+	${AXEC} store -t metadata -i 1 -i 1
+fail 1 'Must specify -r ID for metadata' \
+	${AXEC} store -t metadata -i 1
+fail 1 'Illegal id (-i):' \
+	${AXEC} store -t metadata -r foobar -i ____
+fail 1 'ID is invalid (non-hex characters)' \
+	${AXEC} store -t metadata -r foobar 
+fail 1 'Too many input files' \
+	${AXEC} store -t resource a b 
+fail 1 'Cannot open /nonexistent' \
+	${AXEC} store -t resource /nonexistent
+fail 1 'Input file empty' \
+	${AXEC} store -t resource /dev/null
