@@ -88,3 +88,29 @@ fail 1 'Cannot open /nonexistent' \
 	${AXEC} store -t resource /nonexistent
 fail 1 'Input file empty' \
 	${AXEC} store -t resource /dev/null
+
+${AXEC} store -t metadata -m text/plain \
+	-r `sha256 < ../main_store.c | cut -c1-32` test.rc > /dev/null
+
+fail 1 'Illegal mime-type' \
+	${AXEC} store -t metadata -m text/weird \
+	-r `sha256 < ../main_store.c | cut -c1-32` test.rc
+
+fail 1 'Referenced (-r) ID does not exist' \
+	${AXEC} store -t metadata -m text/plain \
+	-i 00000000000000000000000000000000 \
+	-r 00000000000000000000000000000001 test.rc
+
+# Find ID of warcinfo record
+m=`${AXEC} dumpindex | awk '$2 == "0x00000002" {print $1 ; exit(0)}'`
+mm=`${AXEC} byid $m | awk '{print $2}'`
+
+fail 1 'Referenced (-r) ID does not exist' \
+	${AXEC} store -t metadata -m text/plain \
+	-i 00000000000000000000000000000000 \
+	-r "$mm" test.rc
+
+${AXEC} store -t metadata -m text/plain \
+	-i 00000000000000000000000000000000 \
+	-r `sha256 < ../main_store.c | cut -c1-32` test.rc > /dev/null
+

@@ -248,9 +248,12 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		AN(vsb);
 		gj = GetJob_New(aa, ref, vsb);
 		if (gj == NULL) {
-			fprintf(stderr, "Referenced (-r) ID does not exist\n");
+			AZ(VSB_finish(vsb));
+			fprintf(stderr, "Referenced (-r) ID does not exist:\n");
+			fprintf(stderr, "\t%s\n", VSB_data(vsb));
 			exit(1);
 		}
+		VSB_destroy(&vsb);
 		GetJob_Delete(&gj);
 		Header_Set(hdr, "WARC-Refers-To", "<%s>", ref);
 	}
