@@ -34,23 +34,24 @@ Berkeley DB is a more reasonable 13KLOC, but Oracle owns the project
 which means that relying on it in the long term is not indicated.
 
 Technically even Berkeley DB would be overkill because each indexed
-object is born with a well behaved, and well distributed, long
-random(-ish) unique key, and we never delete anything.
+object is born with a well behaved, and well distributed, by which
+I mean uniformly distributed, long random(-ish) unique key, and we
+never delete anything.
 
 The implemented AardWARC index consists of two parts, a sorted list
-of 16 byte entries, and an unsorted "appendix" containing the most
+of 32 byte entries, and an unsorted "appendix" containing the most
 recently written items.
 
-Because the keys are well distributed, lookups in the sorted index
-can go almost directly to the entry from the WARC-ID (see comments
-at the top of index.c for the "almost" part) and if not found there,
-the "appendix" is small enough to read sequentially.
+Because the keys are uniformly distributed, lookups in the sorted
+index can go almost directly to the entry from the WARC-ID (see
+comments at the top of index.c for the "almost" part) and if not
+found there, the "appendix" is small enough to read sequentially.
 
 When adding new items only an atomic and robust append write to
 the "index.appendix" file is required.
 
 Periodically, a "housekeeping" operation sorts the appendix and
-merges it with the sorted index to a new sorted index.
+merges it with the sorted index to create a new sorted index.
 
 At some point, the sorted index file will grow too big, at which time
 it will be split into multiple files, based on a prefix of the

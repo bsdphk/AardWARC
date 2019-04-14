@@ -281,6 +281,7 @@ static struct bucket *
 bucket_new(off_t nrec_estimate)
 {
 	struct bucket *bp;
+	unsigned u;
 
 	AZ(nrec_estimate & ~0xffffffffff);
 
@@ -301,7 +302,8 @@ bucket_new(off_t nrec_estimate)
 	bp->nbucket = 1UL << bp->bbucket;
 
 	bp->buckets = calloc(sizeof *bp->buckets, bp->nbucket);
-	memset(bp->buckets, 0, sizeof *bp->buckets * bp->nbucket);
+	for (u = 0; u < bp->nbucket; u++)
+		bp->buckets[u] = 1ULL << 31;
 	AN(bp->buckets);
 
 	return (bp);
