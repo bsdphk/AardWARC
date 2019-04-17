@@ -141,6 +141,27 @@ Header_Len(const char *name, const char *val, ...)
 }
 
 void
+Header_Delete(struct header *hd, const char *name)
+{
+	struct hfield *hf, *hf2;
+
+	CHECK_OBJ_NOTNULL(hd, HEADER_MAGIC);
+	AN(name);
+	assert(strchr(name, ':') == NULL);
+	AN(strcasecmp(name, "WARC-Record-ID"));
+
+	VTAILQ_FOREACH_SAFE(hf, &hd->hfields, list, hf2) {
+		CHECK_OBJ_NOTNULL(hf, HFIELD_MAGIC);
+		if (strcasecmp(name, hf->name))
+			continue;
+		VTAILQ_REMOVE(&hd->hfields, hf, list);
+		REPLACE(hf->name, NULL);
+		REPLACE(hf->val, NULL);
+		free(hf);
+	}
+}
+
+void
 Header_Set(struct header *hd, const char *name, const char *val, ...)
 {
 	struct hfield *hf, *hf2;

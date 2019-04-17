@@ -258,7 +258,8 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 	audit_check_header(err, ap, "Content-Length", buf);
 
 	if (ap->bodylen != (ap->o2 - ap->o1))
-		VSB_printf(err, "ERROR: Bad GZIP length\n");
+		VSB_printf(err, "ERROR: Bad GZIP length (%jd vs %jd)\n",
+		    ap->bodylen, (ap->o2 - ap->o1));
 
 	is = Header_Get(ap->hdr, "WARC-Segment-Number");
 	if (is != NULL) {
@@ -309,6 +310,7 @@ audit_silo(struct aardwarc *aa, const char *fn, int nsilo)
 	AN(vsberr);
 
 	while (1) {
+		fflush(stdout);
 		ALLOC_OBJ(ap, AUDIT_MAGIC);
 		AN(ap);
 		ap->silo_fn = fn;

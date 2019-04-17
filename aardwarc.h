@@ -108,6 +108,7 @@ void Gzip_WriteAa(int, int64_t);
 /* header.c */
 
 struct header *Header_New(const struct aardwarc *);
+void Header_Delete(struct header *, const char *);
 void Header_Destroy(struct header **hdp);
 struct header *Header_Clone(const struct header *hd);
 int Header_Len(const char *name, const char *val, ...)
@@ -230,6 +231,7 @@ extern main_f main_filter;
 extern main_f main_get;
 extern main_f main_housekeeping;
 extern main_f main_info;
+extern main_f main_rebuild;
 extern main_f main_reindex;
 extern main_f main_stevedore;
 extern main_f main_store;
