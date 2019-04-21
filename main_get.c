@@ -93,7 +93,7 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	while ((ch = getopt(argc, argv, "ho:q:z")) != -1) {
+	while ((ch = getopt(argc, argv, "ho:qz")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_get(a0, a00, NULL);
