@@ -191,10 +191,10 @@ main_store(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			usage_store(a0, a00, e);
 			exit(1);
 		}
-		if (strlen(optarg) == aa->id_size)
-			ref = Digest2Ident(aa, optarg);
+		if (strlen(r_arg) == aa->id_size)
+			ref = Digest2Ident(aa, r_arg);
 		else
-			ref = optarg;
+			ref = r_arg;
 	}
 
 	/* Figure out the input file ----------------------------------*/
