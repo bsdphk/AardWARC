@@ -27,6 +27,7 @@ do
 	# Get them both back again
 	${AXEC} get -o _3 `cat _2` > _4
 	${AXEC} get -o _3m `cat _2m` > _4m
+	${AXEC} get -n -o _3mn `cat _2m` > _4mn
 
 	# Get back also in gzip'ed format
 	${AXEC} get -z -o _5 `cat _2` > _6
@@ -43,6 +44,7 @@ do
 	# Check headers are the same
 	diff _4 _6
 	diff _4m _6m
+	diff _4mn _6m
 
 	# Check ID headers
 	fgrep -q "WARC-Record-ID: <`cat _2`>" _4

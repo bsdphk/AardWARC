@@ -49,6 +49,10 @@ usage_get(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "Usage for this operation:\n");
 	fprintf(stderr, "\t%s [global options] %s [options] [silo]...\n",
 	    a0, a00);
+	fprintf(stderr, "\t-n		Headers only\n");
+	fprintf(stderr, "\t-o file	Output file\n");
+	fprintf(stderr, "\t-q 		Quiet (no headers)\n");
+	fprintf(stderr, "\t-z 		Gzip output\n");
 }
 
 struct get {
@@ -89,15 +93,18 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	char buf[32];
 	int quiet = 0;
 	const char *of = NULL;
-	int zip = 0;
+	int zip = 0, hdr_only = 0;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	while ((ch = getopt(argc, argv, "ho:qz")) != -1) {
+	while ((ch = getopt(argc, argv, "ho:nqz")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_get(a0, a00, NULL);
 			exit(1);
+		case 'n':
+			hdr_only = !hdr_only;
+			break;
 		case 'o':
 			of = optarg;
 			break;
@@ -154,26 +161,28 @@ main_get(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		fprintf(gp->hdr, "%s", VSB_data(vsb));
 	}
 
-	GetJob_Iter(gj, get_iter, gp, zip);
+	if (!hdr_only) {
+		GetJob_Iter(gj, get_iter, gp, zip);
 
-	dig = SHA256_End(gp->sha256, NULL);
-	AN(dig);
+		dig = SHA256_End(gp->sha256, NULL);
+		AN(dig);
 
-	if (!zip) {
-		p = Header_Get(hdr1, "WARC-Payload-Digest");
-		if (p == NULL)
-			p = Header_Get(hdr1, "WARC-Block-Digest");
-		AN(p);
-		assert(!memcmp(p, "sha256:", 7));
-		p += 7;
-		assert(!strncmp(p, dig, aa->id_size));
+		if (!zip) {
+			p = Header_Get(hdr1, "WARC-Payload-Digest");
+			if (p == NULL)
+				p = Header_Get(hdr1, "WARC-Block-Digest");
+			AN(p);
+			assert(!memcmp(p, "sha256:", 7));
+			p += 7;
+			assert(!strncmp(p, dig, aa->id_size));
 
-		p = Header_Get(hdr9, "WARC-Segment-Total-Length");
-		if (p == NULL)
-			p = Header_Get(hdr9, "Content-Length");
-		AN(p);
-		bprintf(buf, "%ju", (uintmax_t)gp->len);
-		assert(!strcmp(p, buf));
+			p = Header_Get(hdr9, "WARC-Segment-Total-Length");
+			if (p == NULL)
+				p = Header_Get(hdr9, "Content-Length");
+			AN(p);
+			bprintf(buf, "%ju", (uintmax_t)gp->len);
+			assert(!strcmp(p, buf));
+		}
 	}
 
 	FREE_OBJ(gp);
