@@ -36,7 +36,7 @@ LDADD	+=	-lmd
 LDADD	+=	-lm
 LDADD	+=	-lz
 
-CFLAGS	+=	-DGITREV=`git log -n 1 '--format=format:"%h"'`
+CFLAGS	+=	-DGITREV=`cd ${.CURDIR} && git log -n 1 '--format=format:"%h"'`
 CFLAGS	+=	${COVERAGE_FLAGS}
 
 COVFILES =	*.gcov *.gcda *.gcno _.coverage.txt _.coverage.raw
