@@ -9,6 +9,8 @@
  *
  * Inspired by FreeBSD's <sys/cdefs.h>
  *
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -56,6 +58,17 @@
 		assert(ivbprintf >= 0 && ivbprintf < (int)sizeof buf);	\
 	} while (0)
 
+/* Safe strcpy into a fixed-size buffer */
+#define bstrcpy(dst, src)						\
+	do {								\
+		assert(strlen(src) + 1 <= sizeof (dst));		\
+		strcpy((dst), (src));					\
+	} while (0)
+
+// TODO #define strcpy BANNED
+// TODO then revert 0fa4baead49f0a45f68d3db0b7743c5e4e93ad4d
+// TODO and replace with flexelint exception
+
 /* Close and discard filedescriptor */
 #define closefd(fdp)				\
 	do {					\
@@ -80,6 +93,12 @@
 #endif
 
 #define v_noreturn_ __attribute__((__noreturn__))
+
+#ifdef __GNUC__
+#  define v_deprecated_ __attribute__((deprecated))
+#else
+#  define v_deprecated_
+#endif
 
 /*********************************************************************
  * Pointer alignment magic
@@ -126,9 +145,9 @@
 #define v_statevariable_(varname)	varname /*lint -esym(838,varname) */
 
 #ifdef __SUNPRO_C
-#define NEEDLESS(s)		{}
+#  define NEEDLESS(s)		{}
 #else
-#define NEEDLESS(s)		s
+#  define NEEDLESS(s)		s
 #endif
 
 #if __GNUC_PREREQ__(2, 7)
@@ -136,3 +155,8 @@
 #else
 #  define v_unused_
 #endif
+
+/* VTIM API overhaul WIP */
+typedef double vtim_mono;
+typedef double vtim_real;
+typedef double vtim_dur;

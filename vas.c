@@ -1,6 +1,9 @@
 /*-
- * Copyright (c) 2005-2008 Poul-Henning Kamp <phk@freebsd.org>
+ * Copyright (c) 2006 Verdens Gang AS
+ * Copyright (c) 2006-2016 Varnish Software AS
  * All rights reserved.
+ *
+ * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
@@ -25,19 +28,52 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * Functions for assembling a bytestream into text-lines and calling
- * a function on each.
+ * This is the default backend function for libvarnish' assert facilities.
  */
 
-#ifdef VLU_H_INCLUDED
-#  error "vlu.h included multiple times"
-#endif
-#define VLU_H_INCLUDED
+#include "config.h"
 
-typedef int (vlu_f)(void *, const char *);
-struct vlu *VLU_New(vlu_f *, void *, unsigned);
-void VLU_Reset(struct vlu *);
-int VLU_Fd(struct vlu *, int);
-void VLU_Destroy(struct vlu **);
-int VLU_File(int, vlu_f *, void *, unsigned);
-int VLU_Feed(struct vlu *, const char*, int);
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "vdef.h"
+
+#include "vas.h"
+
+vas_f *VAS_Fail_Func v_noreturn_;
+
+void v_noreturn_
+VAS_Fail(const char *func, const char *file, int line,
+    const char *cond, enum vas_e kind)
+{
+	int err = errno;
+
+	if (VAS_Fail_Func != NULL) {
+		VAS_Fail_Func(func, file, line, cond, kind);
+	} else {
+		if (kind == VAS_MISSING) {
+			fprintf(stderr,
+			    "Missing error handling code in %s(), %s line %d:\n"
+			    "  Condition(%s) not true.\n",
+			    func, file, line, cond);
+		} else if (kind == VAS_INCOMPLETE) {
+			fprintf(stderr,
+			    "Incomplete code in %s(), %s line %d:\n",
+			    func, file, line);
+		} else if (kind == VAS_WRONG) {
+			fprintf(stderr,
+			    "Wrong turn in %s(), %s line %d: %s\n",
+			    func, file, line, cond);
+		} else {
+			fprintf(stderr,
+			    "Assert error in %s(), %s line %d:\n"
+			    "  Condition(%s) not true.\n",
+			    func, file, line, cond);
+		}
+		if (err)
+			fprintf(stderr,
+			    "  errno = %d (%s)\n", err, strerror(err));
+	}
+	abort();
+}

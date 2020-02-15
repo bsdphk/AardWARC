@@ -1,0 +1,1 @@
+/* Empty file for varnish source tree compatibility */

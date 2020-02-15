@@ -5,6 +5,8 @@
  *
  * Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
  *
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -38,6 +40,8 @@
 #ifndef VAS_H_INCLUDED
 #define VAS_H_INCLUDED
 
+#include <errno.h>
+
 enum vas_e {
 	VAS_WRONG,
 	VAS_MISSING,
@@ -48,7 +52,8 @@ enum vas_e {
 
 typedef void vas_f(const char *, const char *, int, const char *, enum vas_e);
 
-extern vas_f *VAS_Fail __attribute__((__noreturn__));
+extern vas_f *VAS_Fail_Func v_noreturn_;
+extern vas_f VAS_Fail v_noreturn_;
 
 #ifdef WITHOUT_ASSERTS
 #define assert(e)	((void)(e))
@@ -86,5 +91,27 @@ do {									\
 	VAS_Fail(__func__, __FILE__, __LINE__,				\
 	    "", VAS_INCOMPLETE);					\
 } while (0)
+
+/*
+ * Most of this nightmare is stolen from FreeBSD's <cdefs.h>
+ */
+#ifndef __has_extension
+#  define __has_extension(x)	0
+#endif
+
+#if __has_extension(c_static_assert)
+#   define v_static_assert _Static_assert
+#elif __GNUC_PREREQ__(4,6) && !defined(__cplusplus)
+#   define v_static_assert _Static_assert
+#else
+#   if defined(__COUNTER__)
+#	define v_static_assert(x, y)	__v_static_assert(x, __COUNTER__)
+#   else
+#	define v_static_assert(x, y)	__v_static_assert(x, __LINE__)
+#   endif
+#   define __v_static_assert(x, y)	___v_static_assert(x, y)
+#   define ___v_static_assert(x, y) \
+		typedef char __vassert_## y[(x) ? 1 : -1] v_unused_
+#endif
 
 #endif

@@ -5,22 +5,28 @@
  *
  */
 
+#define ZERO_OBJ(to, sz)						\
+	do {								\
+		void *(*volatile z_obj)(void *, int, size_t) = memset;	\
+		(void)z_obj(to, 0, sz);					\
+	} while (0)
+
 #define INIT_OBJ(to, type_magic)					\
 	do {								\
-		(void)memset(to, 0, sizeof *to);			\
+		(void)memset(to, 0, sizeof *(to));			\
 		(to)->magic = (type_magic);				\
 	} while (0)
 
 #define ALLOC_OBJ(to, type_magic)					\
 	do {								\
-		(to) = calloc(sizeof *(to), 1);				\
+		(to) = calloc(1, sizeof *(to));				\
 		if ((to) != NULL)					\
 			(to)->magic = (type_magic);			\
 	} while (0)
 
 #define FREE_OBJ(to)							\
 	do {								\
-		(to)->magic = (0);					\
+		ZERO_OBJ(&(to)->magic, sizeof (to)->magic);		\
 		free(to);						\
 		to = NULL;						\
 	} while (0)
@@ -55,16 +61,24 @@
 #define CAST_OBJ_NOTNULL(to, from, type_magic)				\
 	do {								\
 		(to) = (from);						\
-		assert((to) != NULL);					\
+		AN((to));						\
 		CHECK_OBJ((to), (type_magic));				\
+	} while (0)
+
+#define TAKE_OBJ_NOTNULL(to, pfrom, type_magic)				\
+	do {								\
+		AN((pfrom));						\
+		(to) = *(pfrom);					\
+		*(pfrom) = NULL;					\
+		CHECK_OBJ_NOTNULL((to), (type_magic));			\
 	} while (0)
 
 #define REPLACE(ptr, val)						\
 	do {								\
-		if ((ptr) != NULL)					\
-			free(ptr);					\
-		if ((val) != NULL) {					\
-			ptr = (void*)strdup(val);			\
+		const char *_vreplace = (val);				\
+		free(ptr);						\
+		if (_vreplace != NULL) {				\
+			ptr = strdup(_vreplace);			\
 			AN((ptr));					\
 		} else {						\
 			ptr = NULL;					\

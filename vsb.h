@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2000-2011 Poul-Henning Kamp
  * Copyright (c) 2000-2008 Dag-Erling Coïdan Smørgrav
  * All rights reserved.
@@ -86,6 +88,7 @@ void		 VSB_quote_pfx(struct vsb *, const char*, const void *,
 		     int len, int how);
 void		 VSB_quote(struct vsb *, const void *, int len, int how);
 void		 VSB_indent(struct vsb *, int);
+int		 VSB_tofile(int fd, const struct vsb *);
 #ifdef __cplusplus
 };
 #endif

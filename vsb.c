@@ -3,6 +3,8 @@
  * Copyright (c) 2000-2008 Dag-Erling Coïdan Smørgrav
  * All rights reserved.
  *
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -27,12 +29,15 @@
 __FBSDID("$FreeBSD: head/sys/kern/subr_vsb.c 222004 2011-05-17 06:36:32Z phk $")
  */
 
+#include "config.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "vdef.h"
 #include "vas.h"	// XXX Flexelint "not used" - but req'ed for assert()
@@ -307,6 +312,8 @@ VSB_cat(struct vsb *s, const char *str)
 
 	assert_VSB_integrity(s);
 	assert_VSB_state(s, 0);
+	KASSERT(str != NULL,
+	    ("%s called with a NULL str pointer", __func__));
 
 	if (s->s_error != 0)
 		return (-1);
@@ -494,8 +501,6 @@ VSB_destroy(struct vsb **s)
 	*s = NULL;
 }
 
-#ifdef VSB_UNUSED
-
 /*
  * Quote a string
  */
@@ -525,9 +530,9 @@ VSB_quote_pfx(struct vsb *s, const char *pfx, const void *v, int len, int how)
 		for (w = u; w < u + len; w++)
 			if (*w != 0x00)
 				break;
-		VSB_printf(s, "0x");
+		VSB_cat(s, "0x");
 		if (w == u + len && len > 4) {
-			VSB_printf(s, "0...0");
+			VSB_cat(s, "0...0");
 		} else {
 			for (w = u; w < u + len; w++)
 				VSB_printf(s, "%02x", *w);
@@ -619,7 +624,7 @@ VSB_quote(struct vsb *s, const void *v, int len, int how)
  */
 
 void
-VSB_indent(struct vsb * s, int i)
+VSB_indent(struct vsb *s, int i)
 {
 
 	assert_VSB_integrity(s);
@@ -628,4 +633,15 @@ VSB_indent(struct vsb * s, int i)
 	else
 		s->s_indent += i;
 }
-#endif // VSB_UNUSED
+
+int
+VSB_tofile(int fd, const struct vsb *s)
+{
+	int sz;
+
+	assert_VSB_integrity(s);
+	assert_VSB_state(s, VSB_FINISHED);
+	assert(s->s_len >= 0);
+	sz = write(fd, s->s_buf, s->s_len);
+	return (sz == s->s_len ? 0 : -1);
+}

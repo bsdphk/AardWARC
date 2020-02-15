@@ -24,6 +24,7 @@ SRCS	+=	proto.c
 SRCS	+=	rsilo.c
 SRCS	+=	segjob.c
 SRCS	+=	silo.c
+SRCS	+=	vas.c
 SRCS	+=	vlu.c
 SRCS	+=	vnum.c
 SRCS	+=	vsb.c
@@ -73,12 +74,7 @@ flint:
 test:	${PROG} runtest
 
 runtest:
-	cd tests && sh test00.sh
-	cd tests && sh test01.sh
-	cd tests && sh test02.sh
-	cd tests && sh test03.sh
-	cd tests && sh test04.sh
-	cd tests && sh test05.sh
+	cd ${.CURDIR}/tests && env AA=${.OBJDIR}/aardwarc sh alltest.sh
 
 t2:	${PROG}
 

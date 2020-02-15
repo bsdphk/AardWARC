@@ -21,7 +21,7 @@ echo '*.gcda'
 echo "stow.test03:"
 echo "          directory `pwd`/.."
 echo "          exclude ${ADIR}/_stow.exclude"
-echo "          cmd `pwd`/${AXEC} stevedore"
+echo "          cmd ${AXEC} stevedore"
 echo ""
 echo "stow.test03a:"
 echo "          directory `pwd`/.."
@@ -29,7 +29,7 @@ echo "          cmd sleep 1 ; exit 2"
 echo ""
 echo "stow.test03b:"
 echo "          directory ${ADIR}/test3b"
-echo "          cmd `pwd`/${AXEC} stevedore"
+echo "          cmd ${AXEC} stevedore"
 echo ""
 ) >> ${ADIR}/aardwarc.conf
 

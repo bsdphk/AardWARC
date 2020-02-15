@@ -40,25 +40,6 @@
 
 #include "aardwarc.h"
 
-static void __attribute__((__noreturn__))
-pan_ic(const char *func, const char *file, int line, const char *cond,
-    enum vas_e kind)
-{
-	int e = errno;
-
-	fprintf(stderr, "Panic:\n");
-	fprintf(stderr, "\tFunc: %s\n", func);
-	fprintf(stderr, "\tFile: %s\n", file);
-	fprintf(stderr, "\tLine: %d\n", line);
-	fprintf(stderr, "\tCond: %s\n", cond);
-	fprintf(stderr, "\tKind: %d\n", kind);
-	if (e)
-		fprintf(stderr, "\tErrno: %d (%s)\n", e, strerror(e));
-	abort();
-}
-
-vas_f *VAS_Fail __attribute__((__noreturn__)) = pan_ic;
-
 /*---------------------------------------------------------------------*/
 
 static const struct mains {
