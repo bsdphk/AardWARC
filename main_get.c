@@ -51,8 +51,8 @@ usage_get(const char *a0, const char *a00, const char *err)
 	    a0, a00);
 	fprintf(stderr, "\t-n		Headers only\n");
 	fprintf(stderr, "\t-o file	Output file\n");
-	fprintf(stderr, "\t-q 		Quiet (no headers)\n");
-	fprintf(stderr, "\t-z 		Gzip output\n");
+	fprintf(stderr, "\t-q		Quiet (no headers)\n");
+	fprintf(stderr, "\t-z		Gzip output\n");
 }
 
 struct get {

@@ -64,6 +64,8 @@ struct audit {
 static VTAILQ_HEAD(,audit) segment_list =
     VTAILQ_HEAD_INITIALIZER(segment_list);
 
+static int ignore_metadata_record_id;
+
 static void
 audit_check_header(struct vsb *err, const struct audit *ap,
     const char *hdn, const char *expect)
@@ -239,11 +241,35 @@ audit_one_pending(struct aardwarc *aa, struct vsb *err)
 	return (0);
 }
 
+static void
+audit_check_ident(struct aardwarc *aa, struct vsb *err, struct audit *ap,
+    const char *dig)
+{
+	char *oldid;
+	const char *type;
+	char newid[SHA256_DIGEST_STRING_LENGTH];
+
+	type = Header_Get(ap->hdr, "WARC-Type");
+	AN(type);
+	if (strcmp(type, "metadata") || !ignore_metadata_record_id) {
+		oldid = strdup(Header_Get_Id(ap->hdr));
+		AN(oldid);
+
+		Ident_Create(aa, ap->hdr, dig, newid);
+
+		if (strcmp(oldid, newid)) {
+			VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
+			VSB_printf(err, "\tis:\t\t%s\n", oldid);
+			VSB_printf(err, "\tshould be:\t%s\n", newid);
+		}
+		free(oldid);
+	}
+}
+
 static int
 audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 {
-	char *oldid, *p;
-	char newid[SHA256_DIGEST_STRING_LENGTH];
+	char *p;
 	char dig[SHA256_DIGEST_STRING_LENGTH];
 	char buf[64];
 	const char *is;
@@ -271,19 +297,8 @@ audit_one(struct aardwarc *aa, struct vsb *err, struct audit *ap)
 			VSB_printf(err, "ERROR: Bad WARC-Segment-Number\n");
 	}
 
-	if (is == NULL || strcmp(is, "1")) {
-		oldid = strdup(Header_Get_Id(ap->hdr));
-		AN(oldid);
-
-		Ident_Create(aa, ap->hdr, dig, newid);
-
-		if (strcmp(oldid, newid)) {
-			VSB_printf(err, "ERROR: WARC-Record-ID difference\n");
-			VSB_printf(err, "\tis:\t\t%s\n", oldid);
-			VSB_printf(err, "\tshould be:\t%s\n", newid);
-		}
-		free(oldid);
-	}
+	if (is == NULL || strcmp(is, "1"))
+		audit_check_ident(aa, err, ap, dig);
 
 	return (retval);
 }
@@ -368,9 +383,10 @@ usage_audit(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "Usage for this operation:\n");
 	fprintf(stderr, "\t%s [global options] %s [options] [silo]...\n",
 	    a0, a00);
-	//fprintf(stderr, "Options:\n");
-	//fprintf(stderr, "\t-m mime_type\n");
-	//fprintf(stderr, "\t-t {metadata|resource}\n");
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "\t[-i <ignore-error>]\n");
+	fprintf(stderr, "Ignore errors:\n");
+	fprintf(stderr, "\tignore-metadata-record-id\n");
 }
 
 int v_matchproto_(main_f)
@@ -383,11 +399,17 @@ main_audit(const char *a0, struct aardwarc *aa, int argc, char **argv)
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 
-	while ((ch = getopt(argc, argv, "h")) != -1) {
+	while ((ch = getopt(argc, argv, "i:h")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_audit(a0, a00, NULL);
 			exit(1);
+		case 'i':
+			if (!strcmp(optarg, "ignore-metadata-record-id"))
+				ignore_metadata_record_id = 1;
+			else
+				usage_audit(a0, a00, "Unknown -i argument.");
+			break;
 		default:
 			usage_audit(a0, a00, "Unknown option error.");
 			exit(1);
