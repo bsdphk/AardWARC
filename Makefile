@@ -65,7 +65,7 @@ coverage:
 	tail -4 _.coverage/_.coverage.txt
 
 flint:
-	flexelint \
+	cd ${.CURDIR} && flexelint \
 		-I. \
 		-I/usr/include \
 		flint.lnt \
