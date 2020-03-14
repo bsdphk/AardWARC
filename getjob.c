@@ -64,6 +64,7 @@ struct getjob {
 	const char		*err;
 
 	struct getjobseg_head	segs;
+	int			nsegs;
 };
 
 static int v_matchproto_(idx_iter_f)
@@ -147,6 +148,7 @@ getjob_iter(void *priv, const char *key,
 	gjs->segno = segno;
 	AN(gjs->idx_cont);
 	VTAILQ_INSERT_TAIL(&gj->segs, gjs, list);
+	gj->nsegs++;
 	return(1);
 }
 
@@ -242,19 +244,23 @@ void
 GetJob_Iter(const struct getjob *gj, byte_iter_f *func, void *priv, int gzip)
 {
 	struct getjobseg *gjs;
-	uintmax_t um;
+	struct gzip_stitch *gs;
 
 	CHECK_OBJ_NOTNULL(gj, GETJOB_MAGIC);
 	AN(func);
-
-	VTAILQ_FOREACH(gjs, &gj->segs, list) {
-		if (gzip) {
-			um = Rsilo_ReadGZChunk(gjs->rs, func, priv);
-		} else {
-			um = Rsilo_ReadChunk(gjs->rs, func, priv);
-		}
-		if (um == 0)
-			break;
+	if (!gzip) {
+		VTAILQ_FOREACH(gjs, &gj->segs, list)
+			if (Rsilo_ReadChunk(gjs->rs, func, priv) == 0)
+				break;
+	} else if (gj->nsegs == 1) {
+		gjs = VTAILQ_FIRST(&gj->segs);
+		Rsilo_ReadGZChunk(gjs->rs, func, priv);
+	} else {
+		gs = gzip_stitch_new(func, priv);
+		VTAILQ_FOREACH(gjs, &gj->segs, list)
+			if (Rsilo_ReadGZChunk(gjs->rs, gzip_stitch_feed, gs) == 0)
+				break;
+		gzip_stitch_fini(gs);
 	}
 }
 

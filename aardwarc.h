@@ -107,6 +107,11 @@ extern const uint8_t Gzip_crnlcrnl[24];
 int64_t Gzip_ReadAa(const void *, size_t);
 void Gzip_WriteAa(int, int64_t);
 
+struct gzip_stitch;
+struct gzip_stitch * gzip_stitch_new(byte_iter_f *func, void *priv);
+int gzip_stitch_feed(void *priv, const void *ptr, ssize_t len);
+int gzip_stitch_fini(struct gzip_stitch *gs);
+
 /* header.c */
 
 struct header *Header_New(const struct aardwarc *);

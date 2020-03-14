@@ -229,15 +229,13 @@ Rsilo_ReadGZChunk(struct rsilo *rs, byte_iter_f *func, void *priv)
 {
 	int		ps = getpagesize();
 	ssize_t		sz;
-	char		ibuf[ps * 100];
+	char		ibuf[ps * 32];
 	int		j;
 	off_t		ll = 0;
 
 	CHECK_OBJ_NOTNULL(rs, RSILO_MAGIC);
 	AN(func);
 	assert(rs->silo_where == RS_BODY);
-
-	/* XXX: Substitute a gzip header without the Aa extra field? */
 
 	do {
 		sz = sizeof ibuf;
