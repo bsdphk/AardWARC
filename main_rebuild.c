@@ -172,7 +172,7 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 			rb->body_start = lseek(rb->fdo, 0, SEEK_CUR);
 			memset(rb->zs, 0, sizeof rb->zs);
 			i = deflateInit2(rb->zs,
-			    Z_BEST_COMPRESSION,
+			    AA_COMPRESSION,
 			    Z_DEFLATED,
 			    16 + 15,
 			    9,
@@ -200,8 +200,12 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 		if (rb->state == 11) {
 			rb->zs->avail_out = sizeof rb->obuf;
 			rb->zs->next_out = rb->obuf;
-			i = deflate(rb->zs, rb->rlen > 0 ? 0 : Z_FINISH);
-			assert(i == Z_OK || (rb->rlen == 0 && i == Z_STREAM_END));
+			i = deflate(rb->zs, rb->rlen > 0 ? 0 : Z_SYNC_FLUSH);
+			assert(i == Z_OK);
+			if (rb->rlen == 0) {
+				i = deflate(rb->zs, Z_FINISH);
+				assert(i == Z_STREAM_END);
+			}
 			oz = sizeof rb->obuf - rb->zs->avail_out;
 			if (oz) {
 				wz = write(rb->fdo, rb->obuf, oz);
