@@ -56,7 +56,6 @@ struct segment {
 	struct header		*hdr;
 	struct wsilo		*silo;
 	off_t			size;
-	off_t			gzsize;
 };
 
 struct segjob {
@@ -74,7 +73,7 @@ struct segjob {
 	struct SHA256Context	sha256_segment[1];
 
 	off_t			size;
-	off_t			gzsize;
+	size_t			obuflen;
 	z_stream		gz[1];
 	int			gz_flag;
 };
@@ -158,7 +157,7 @@ segjob_newseg(struct segjob *sj)
 
 	memset(sj->gz, 0, sizeof sj->gz);
 	i = deflateInit2(sj->gz,
-		Z_BEST_COMPRESSION,
+		AA_COMPRESSION,
 		Z_DEFLATED,
 		16 + 15,
 		9,
@@ -219,14 +218,40 @@ SegJob_New(struct aardwarc *aa, const struct header *hdr, const char *ident)
 	return (sj);
 }
 
+static void
+segjob_setup_outbuf(struct segjob *sj, struct segment *sg)
+{
+	void *obuf_ptr;
+
+	Wsilo_GetSpace(sg->silo, &obuf_ptr, &sj->obuflen);
+	assert(sj->obuflen > 0);
+	sj->obuflen -= sizeof Gzip_crnlcrnl;
+	sj->gz->avail_out = sj->obuflen;
+	sj->gz->next_out = obuf_ptr;
+}
+
+static void
+segjob_deflate(struct segjob *sj, struct segment *sg)
+{
+	int i;
+	ssize_t len;
+
+	i = deflate(sj->gz, sj->gz_flag);
+	len = sj->obuflen - sj->gz->avail_out;
+	assert(i == Z_OK || (sj->gz_flag == Z_FINISH && i == Z_STREAM_END));
+
+	len = sj->obuflen - sj->gz->avail_out;
+	if (len > 0)
+		AZ(Wsilo_Store(sg->silo, len));
+}
+
 void
 SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 {
-	int i;
 	struct segment *sg;
 	const char *ip = iptr;
-	ssize_t obuf_len, len;
-	void *obuf_ptr;
+	ssize_t len;
+	void *ptr;
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
 
@@ -239,25 +264,56 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 		sg = sj->cur_seg;
 		CHECK_OBJ_NOTNULL(sg, SEGMENT_MAGIC);
 
-		/* Get output space -----------------------------------*/
-
-		Wsilo_GetSpace(sg->silo, &obuf_ptr, &obuf_len);
-		assert(obuf_len > 0);
-		sj->gz->avail_out = obuf_len;
-		sj->gz->next_out = obuf_ptr;
+		segjob_setup_outbuf(sj, sg);
 
 		/* Steer gzip to fill silo almost exactly -------------*/
 
-		if (obuf_len < 52 || ilen == 0) {
+		if (sj->obuflen < 52 || ilen == 0) {
+			/* 40 is found by experiment, 52 for safety */
+
+			AZ(sj->gz->avail_in);
+
+			/* Flush to byte-boundary, so we can do CRC-tricks */
+			sj->gz_flag = Z_SYNC_FLUSH;
+			segjob_deflate(sj, sg);
+
+			sj->gz_flag = Z_FINISH;
+			segjob_setup_outbuf(sj, sg);
+			segjob_deflate(sj, sg);
+
+			Wsilo_GetSpace(sg->silo, &ptr, &sj->obuflen);
+			assert(sj->obuflen > (ssize_t)sizeof Gzip_crnlcrnl);
+			memcpy(ptr, Gzip_crnlcrnl, sizeof Gzip_crnlcrnl);
+			AZ(Wsilo_Store(sg->silo, sizeof Gzip_crnlcrnl));
+
+			segjob_finishseg(sj);
+			continue;
+		}
+
+		if (sj->gz->avail_in == 0) {
 			/*
-			 * Just enough space for alignment and tail.
-			 * Trial and error found 40 byte, 52 to be safe.
+			 * At most we pass in half as much data as we have
+			 * output space for, measured in bytes so we avoid
+			 * Zeno's Paradox about Achilles and the Tortoise.
 			 */
-			if (sj->gz_flag != Z_FINISH) {
-				AZ(sj->gz->avail_in);
-				sj->gz_flag = Z_FINISH;
-			}
-		} else if (sj->gz_flag == 0 && sj->gz->avail_out < 128 * 1024) {
+			len = sj->gz->avail_out >> 1;
+			if (len > ilen)
+				len = ilen;
+			assert(len > 0);
+
+			sj->gz->avail_in = len;
+			sj->gz->next_in = (void*)(uintptr_t)ip;
+
+			sj->size += len;
+			sg->size += len;
+			SHA256_Update(sj->sha256_segment, ip, len);
+			SHA256_Update(sj->sha256_payload, ip, len);
+
+			ilen -= len;
+			ip += len;
+		}
+
+		if (sj->gz->avail_out < 128 * 1024) {
 			/*
 			 * From here on we flush all gzip output in order
 			 * to not get surprised by a big lump later on.
@@ -267,52 +323,9 @@ SegJob_Feed(struct segjob *sj, const void *iptr, ssize_t ilen)
 			 * less efficient compression.
 			 */
 			sj->gz_flag = Z_PARTIAL_FLUSH;
-		} else if (sj->gz->avail_in == 0) {
-			/*
-			 * At most we pass in half as much data as we have
-			 * output space for, measured in bytes so we avoid
-			 * Zeno's Paradox about Achilles and the Tortoise.
-			 */
-			len = sj->gz->avail_out >> 1;
-			if (len < 1024)
-				len -= 12;	// space for CRNLCRNL
-			if (len > ilen)
-				len = ilen;
-
-			sj->gz->avail_in = len;
-			sj->gz->next_in = (void*)(uintptr_t)ip;
-			ilen -= len;
-			ip += len;
-
-			if (len > 0) {
-				sj->size += len;
-				sg->size += len;
-				SHA256_Update(sj->sha256_segment,
-				    sj->gz->next_in, len);
-				SHA256_Update(sj->sha256_payload,
-				    sj->gz->next_in, len);
-			}
 		}
 
-		i = deflate(sj->gz, sj->gz_flag);
-		assert(i == Z_OK ||
-		    (sj->gz_flag == Z_FINISH && i == Z_STREAM_END));
-
-		len = obuf_len - sj->gz->avail_out;
-		if (len > 0) {
-			sj->gzsize += len;
-			sg->gzsize += len;
-			AZ(Wsilo_Store(sg->silo, len));
-		}
-
-		/* Finish segment if complete -------------------------*/
-
-		if (i == Z_STREAM_END) {
-			assert(obuf_len > (ssize_t)sizeof Gzip_crnlcrnl);
-			memcpy(obuf_ptr, Gzip_crnlcrnl, sizeof Gzip_crnlcrnl);
-			AZ(Wsilo_Store(sg->silo, sizeof Gzip_crnlcrnl));
-			segjob_finishseg(sj);
-		}
+		segjob_deflate(sj, sg);
 
 	} while (sj->gz->avail_in > 0 || ilen > 0);
 }

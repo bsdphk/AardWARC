@@ -120,7 +120,7 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 
 			memset(rb->zs, 0, sizeof rb->zs);
 			i = deflateInit2(rb->zs,
-			    Z_BEST_COMPRESSION,
+			    AA_COMPRESSION,
 			    Z_DEFLATED,
 			    16 + 15,
 			    9,

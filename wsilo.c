@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -466,7 +467,7 @@ Wsilo_Commit(struct wsilo **slp, int segd, const char *id, const char *rid)
 		 * The silo does not hold a segmented object.
 		 * Attempt to append the object to a previous silo.
 		 */
-		vsb = Header_Serialize(sl->hd, 9);
+		vsb = Header_Serialize(sl->hd, AA_COMPRESSION);
 		for (sn = aa->cache_first_space_silo; sn < sl->silo_no;sn++) {
 			i = silo_attempt_append(sl, sn, vsb, id);
 			if (i == 1) {
