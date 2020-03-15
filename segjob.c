@@ -100,7 +100,7 @@ segjob_newseg(struct segjob *sj)
 {
 	struct segment *sg;
 	char *digest;
-	int pad = 0, i;
+	int pad = 0;
 	intmax_t im;
 
 	CHECK_OBJ_NOTNULL(sj, SEGJOB_MAGIC);
@@ -154,15 +154,7 @@ segjob_newseg(struct segjob *sj)
 	VTAILQ_INSERT_TAIL(&sj->segments, sg, list);
 
 	SHA256_Init(sj->sha256_segment);
-
-	memset(sj->gz, 0, sizeof sj->gz);
-	i = deflateInit2(sj->gz,
-		AA_COMPRESSION,
-		Z_DEFLATED,
-		16 + 15,
-		9,
-		Z_DEFAULT_STRATEGY);
-	assert(i == Z_OK);
+	Gzip_InitDeflate(sj->gz);
 	sj->gz_flag = 0;
 	Gzip_AddAa(sj->gz);
 	sj->cur_seg = sg;
@@ -219,7 +211,7 @@ SegJob_New(struct aardwarc *aa, const struct header *hdr, const char *ident)
 }
 
 static void
-segjob_setup_outbuf(struct segjob *sj, struct segment *sg)
+segjob_setup_outbuf(struct segjob *sj, const struct segment *sg)
 {
 	void *obuf_ptr;
 
@@ -231,7 +223,7 @@ segjob_setup_outbuf(struct segjob *sj, struct segment *sg)
 }
 
 static void
-segjob_deflate(struct segjob *sj, struct segment *sg)
+segjob_deflate(struct segjob *sj, const struct segment *sg)
 {
 	int i;
 	ssize_t len;

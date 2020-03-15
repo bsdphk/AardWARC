@@ -103,6 +103,7 @@ extern const uint8_t Gzip_crnlcrnl[24];
     void Gzip_AddAa(z_stream *);
     #define AA_COMPRESSION Z_BEST_COMPRESSION
     //#define AA_COMPRESSION Z_NO_COMPRESSION
+    void Gzip_InitDeflate(z_stream *zs);
 #endif
 int64_t Gzip_ReadAa(const void *, size_t);
 void Gzip_WriteAa(int, int64_t);

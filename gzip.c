@@ -191,6 +191,25 @@ Gzip_Vsb(struct vsb **vsbp, int level)
 	*vsbp = output;
 }
 
+/**********************************************************************/
+
+void
+Gzip_InitDeflate(z_stream *zs)
+{
+	int i;
+
+	memset(zs, 0, sizeof *zs);
+	i = deflateInit2(
+	    zs,
+	    AA_COMPRESSION,
+	    Z_DEFLATED,
+	    16 + MAX_WBITS,
+	    8,
+	    Z_DEFAULT_STRATEGY
+	);
+	assert(i == Z_OK);
+}
+
 /**********************************************************************
  * Code to stitch multiple WARC segments, individually gzip'ed into
  * a single gzip object, because browser-people are morons who cannot

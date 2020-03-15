@@ -118,14 +118,7 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 			rb->hdrlen = 0;
 			rb->body_start = lseek(rb->fdo, 0, SEEK_CUR);
 
-			memset(rb->zs, 0, sizeof rb->zs);
-			i = deflateInit2(rb->zs,
-			    AA_COMPRESSION,
-			    Z_DEFLATED,
-			    16 + 15,
-			    9,
-			    Z_DEFAULT_STRATEGY);
-			assert(i == Z_OK);
+			Gzip_InitDeflate(rb->zs);
 			Gzip_AddAa(rb->zs);
 
 			rb->state = 10;
@@ -170,14 +163,7 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 			rb->hdrlen = 0;
 
 			rb->body_start = lseek(rb->fdo, 0, SEEK_CUR);
-			memset(rb->zs, 0, sizeof rb->zs);
-			i = deflateInit2(rb->zs,
-			    AA_COMPRESSION,
-			    Z_DEFLATED,
-			    16 + 15,
-			    9,
-			    Z_DEFAULT_STRATEGY);
-			assert(i == Z_OK);
+			Gzip_InitDeflate(rb->zs);
 			Gzip_AddAa(rb->zs);
 			rb->zs->avail_in = rb->clen;
 			rb->zs->next_in = rb->fixbuf;
@@ -200,9 +186,12 @@ rebuild_process(struct rebuild *rb, const unsigned char *ptr, ssize_t len)
 		if (rb->state == 11) {
 			rb->zs->avail_out = sizeof rb->obuf;
 			rb->zs->next_out = rb->obuf;
-			i = deflate(rb->zs, rb->rlen > 0 ? 0 : Z_SYNC_FLUSH);
-			assert(i == Z_OK);
-			if (rb->rlen == 0) {
+			if (rb->rlen > 0) {
+				i = deflate(rb->zs, 0);
+				assert(i == Z_OK);
+			} else {
+				i = deflate(rb->zs, Z_SYNC_FLUSH);
+				assert(i == Z_OK);
 				i = deflate(rb->zs, Z_FINISH);
 				assert(i == Z_STREAM_END);
 			}
@@ -256,6 +245,12 @@ rebuild_silo_iter(void *priv, const void *fn, ssize_t silono)
 	int		i;
 
 	CAST_OBJ_NOTNULL(rb, priv, REBUILD_MAGIC);
+	fi = fopen(fn, "rb");
+	if (fi == NULL) {
+		fprintf(stderr,
+		    "Cannot open %s: %s\n", (const char*)fn, strerror(errno));
+		return (0);
+	}
 	fprintf(stderr, "SILO NO %zd FN %s\n", silono, (const char *)fn);
 	VSB_clear(rb->vsb);
 	VSB_cat(rb->vsb, fn);
@@ -263,9 +258,6 @@ rebuild_silo_iter(void *priv, const void *fn, ssize_t silono)
 	AZ(VSB_finish(rb->vsb));
 	rb->fdo = open(VSB_data(rb->vsb), O_RDWR | O_CREAT | O_TRUNC, 0600);
 	assert(rb->fdo >= 0);
-
-	fi = fopen(fn, "rb");
-	XXXAN(fi);
 
 	memset(zs, 0, sizeof zs);
 	zs->next_in = (void*)ibuf;

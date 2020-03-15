@@ -254,13 +254,13 @@ GetJob_Iter(const struct getjob *gj, byte_iter_f *func, void *priv, int gzip)
 				break;
 	} else if (gj->nsegs == 1) {
 		gjs = VTAILQ_FIRST(&gj->segs);
-		Rsilo_ReadGZChunk(gjs->rs, func, priv);
+		(void)Rsilo_ReadGZChunk(gjs->rs, func, priv);
 	} else {
 		gs = gzip_stitch_new(func, priv);
 		VTAILQ_FOREACH(gjs, &gj->segs, list)
 			if (Rsilo_ReadGZChunk(gjs->rs, gzip_stitch_feed, gs) == 0)
 				break;
-		gzip_stitch_fini(gs);
+		(void)gzip_stitch_fini(gs);
 	}
 }
 
