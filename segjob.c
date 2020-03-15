@@ -147,7 +147,7 @@ segjob_newseg(struct segjob *sj)
 
 	REPLACE(digest, NULL);
 
-	sg->silo = Wsilo_New(sj->aa);
+	sg->silo = Wsilo_Next(sj->aa);
 	AN(sg->silo);
 	Wsilo_Header(sg->silo, sg->hdr, pad);
 

@@ -57,6 +57,7 @@ static const struct mains {
 	MAIN(get,		0, "Get record"),
 	MAIN(housekeeping,	0, "Do housekeeping"),
 	MAIN(info,		1, "Information about the archive"),
+	MAIN(mksilo,		0, "Build a new silo"),
 	MAIN(rebuild,		0, "Rebuild silos"),
 	MAIN(reindex,		0, "Rebuild index"),
 	MAIN(stevedore,		0, "Act as server"),

@@ -14,6 +14,7 @@ SRCS	+=	main_filter.c
 SRCS	+=	main_get.c
 SRCS	+=	main_housekeeping.c
 SRCS	+=	main_info.c
+SRCS	+=	main_mksilo.c
 SRCS	+=	main_rebuild.c
 SRCS	+=	main_reindex.c
 SRCS	+=	main_stevedore.c

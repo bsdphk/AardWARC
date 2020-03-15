@@ -198,6 +198,7 @@ char *SegJob_Commit(struct segjob *);
 struct vsb *Silo_Filename(const struct aardwarc *, unsigned number, int hold);
 int Silo_Iter(const struct aardwarc *, byte_iter_f *func, void *priv);
 
+
 /* silo_read.c */
 struct rsilo *Rsilo_Open(struct aardwarc *, const char *fn, uint32_t nsilo,
     int64_t off);
@@ -211,12 +212,14 @@ off_t Rsilo_Tell(const struct rsilo *);
 void Rsilo_SkipCRNL(struct rsilo *rs);
 
 /* silo_write.c */
-struct wsilo *Wsilo_New(struct aardwarc *);
+struct wsilo *Wsilo_New(struct aardwarc *aa, uint32_t silono);
+struct wsilo *Wsilo_Next(struct aardwarc *);
 void Wsilo_GetSpace(const struct wsilo *, void **ptr, ssize_t *len);
 int Wsilo_Store(struct wsilo *, ssize_t len);
 void Wsilo_Finish(struct wsilo *);
 void Wsilo_Header(struct wsilo *, struct header *, int pad);
 void Wsilo_Commit(struct wsilo **, int segd, const char *id, const char *rid);
+void Wsilo_Install(struct wsilo **);
 void Wsilo_Abandon(struct wsilo **);
 
 /* vnum.c */
@@ -239,6 +242,7 @@ extern main_f main_filter;
 extern main_f main_get;
 extern main_f main_housekeeping;
 extern main_f main_info;
+extern main_f main_mksilo;
 extern main_f main_rebuild;
 extern main_f main_reindex;
 extern main_f main_stevedore;

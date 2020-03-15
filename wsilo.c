@@ -113,67 +113,64 @@ silo_mkparentdir(const char *path)
 /* Create a new (held) silo -------------------------------------------*/
 
 struct wsilo *
-Wsilo_New(struct aardwarc *aa)
+Wsilo_New(struct aardwarc *aa, uint32_t silono)
 {
 	int j;
-	uint32_t silono, high;
 	int fd;
 	struct vsb *vsb = NULL, *vsb2 = NULL;
 	struct stat st;
 	struct wsilo *sl;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+
+	vsb = Silo_Filename(aa, silono, 0);
+	AN(vsb);
+
+	if (!stat(VSB_data(vsb), &st)) {
+		VSB_delete(vsb);
+		return (NULL);
+	}
+
+	vsb2 = Silo_Filename(aa, silono, 1);
+	AN(vsb2);
+
+	j = silo_mkparentdir(VSB_data(vsb));
+	if (j) {
+		fprintf(stderr, "MKDIR %d %d %s\n",
+		    j, errno, strerror(errno));
+		return (NULL);
+	}
+
+	if (!stat(VSB_data(vsb2), &st)) {
+		/* XXX: Check age, if > 1 week remove */
+		VSB_delete(vsb);
+		VSB_delete(vsb2);
+		return (NULL);
+	}
+
+
+	fd = open(VSB_data(vsb2), O_RDWR | O_CREAT | O_EXCL, 0640);
+
+	if (fd < 0 && errno == EEXIST) {
+		/* Somebody else holds it */
+		VSB_delete(vsb);
+		VSB_delete(vsb2);
+		return (NULL);
+	}
+
+
+	if (fd < 0) {
+		/* XXX */
+		fprintf(stderr,
+		    "Unexpected error opening silo hold\n\t%s\n\t%s\n",
+		    VSB_data(vsb2), strerror(errno));
+		exit(2);
+	}
+
 	ALLOC_OBJ(sl, WSILO_MAGIC);
 	if (sl == NULL)
 		return (NULL);
 	sl->hold_fd = -1;
-
-	AardWARC_ReadCache(aa);
-	high = aa->cache_first_non_silo;
-	for (silono = high; ; silono++) {
-		vsb = Silo_Filename(aa, silono, 0);
-		AN(vsb);
-
-		if (!stat(VSB_data(vsb), &st)) {
-			VSB_delete(vsb);
-			if (silono == high + 1)
-				high = silono;
-			continue;
-		}
-
-		vsb2 = Silo_Filename(aa, silono, 1);
-		AN(vsb2);
-
-		j = silo_mkparentdir(VSB_data(vsb));
-		if (j)
-			fprintf(stderr, "MKDIR %d %d %s\n",
-			    j, errno, strerror(errno));
-
-		if (!stat(VSB_data(vsb2), &st)) {
-			/* XXX: Check age, if > 1 week remove */
-			VSB_delete(vsb);
-			VSB_delete(vsb2);
-			continue;
-		}
-
-		fd = open(VSB_data(vsb2), O_RDWR | O_CREAT | O_EXCL, 0640);
-
-		if (fd < 0 && errno == EEXIST) {
-			/* Somebody else holds it */
-			VSB_delete(vsb);
-			VSB_delete(vsb2);
-			continue;
-		}
-
-		if (fd < 0) {
-			/* XXX */
-			fprintf(stderr,
-			    "Unexpected error opening silo hold\n\t%s\n\t%s\n",
-			    VSB_data(vsb2), strerror(errno));
-			exit(2);
-		}
-		break;
-	}
 
 	AN(vsb);
 	sl->silo_fn = vsb;
@@ -187,14 +184,31 @@ Wsilo_New(struct aardwarc *aa)
 	sl->buf_ptr = malloc(sl->buf_len);
 	AN(sl->buf_ptr);
 
-	// fprintf(stderr, "DEBUG: Wsilo_New(%u)\n", silono);
-
 	sl->aa = aa;
 
 	sl->warcinfo_id = Warcinfo_New(sl->aa, sl, sl->silo_no);
 
 	return (sl);
 }
+
+struct wsilo *
+Wsilo_Next(struct aardwarc *aa)
+{
+	uint32_t silono, high;
+	struct wsilo *sl;
+
+	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+
+	AardWARC_ReadCache(aa);
+	high = aa->cache_first_non_silo;
+	for (silono = high; ; silono++) {
+		sl = Wsilo_New(aa, silono);
+		if (sl != NULL)
+			break;
+	}
+	return (sl);
+}
+
 
 static void
 wsilo_delete(struct wsilo *sl)
@@ -442,6 +456,27 @@ silo_attempt_append(const struct wsilo *sl, uint32_t silono,
 /* Commit a silo ------------------------------------------------------*/
 
 void
+Wsilo_Install(struct wsilo **slp)
+{
+	struct wsilo *sl;
+
+	TAKE_OBJ_NOTNULL(sl, slp, WSILO_MAGIC);
+
+	IDX_Insert(sl->aa,
+	    sl->warcinfo_id, IDX_F_WARCINFO, sl->silo_no, 0, NULL);
+	/*
+	 * We don't use rename(2) because it wouldn't fail if the
+	 * destination silo already exists.
+	 */
+	AZ(link(VSB_data(sl->hold_fn), VSB_data(sl->silo_fn)));
+	if (sl->silo_no == sl->aa->cache_first_non_silo) {
+		sl->aa->cache_first_non_silo++;
+		AardWARC_WriteCache(sl->aa);
+	}
+	wsilo_delete(sl);
+}
+
+void
 Wsilo_Commit(struct wsilo **slp, int segd, const char *id, const char *rid)
 {
 	struct wsilo *sl;
@@ -454,9 +489,7 @@ Wsilo_Commit(struct wsilo **slp, int segd, const char *id, const char *rid)
 
 	AN(slp);
 	AN(id);
-	sl = *slp;
-	*slp = NULL;
-	CHECK_OBJ_NOTNULL(sl, WSILO_MAGIC);
+	TAKE_OBJ_NOTNULL(sl, slp, WSILO_MAGIC);
 	AN(sl->hd);
 	AZ(sl->buf_ptr);
 	aa = sl->aa;
@@ -479,63 +512,51 @@ Wsilo_Commit(struct wsilo **slp, int segd, const char *id, const char *rid)
 				break;
 		}
 		VSB_delete(vsb);
+		if (done) {
+			wsilo_delete(sl);
+			return;
+		}
 	}
 
-	if (!done) {
-		/*
-		 * Segmented, or simply too big to be appended
-		 * Pad & write the header, rename the hold to silo.
-		 */
-		vsb = Header_Serialize(sl->hd, 0);
-		i = sl->hd_len - VSB_len(vsb);
+	/*
+	 * Segmented, or simply too big to be appended
+	 * Pad & write the header, rename the hold to silo.
+	 */
+	vsb = Header_Serialize(sl->hd, 0);
+	i = sl->hd_len - VSB_len(vsb);
 
-		if (i > 0) {
-			/* Add padding header */
-			assert(i >= 5);
-			char *p = malloc(i);
-			AN(p);
-			memset(p, '_', i - 1);
-			p[i - 1] = '\0';
-			Header_Set(sl->hd, PADDING_HEADER, "%s", p + 4);
-			REPLACE(p, NULL);
-
-			VSB_delete(vsb);
-			vsb = Header_Serialize(sl->hd, 0);
-		}
-		assert(VSB_len(vsb) == sl->hd_len);
-
-		s = pwrite(sl->hold_fd, VSB_data(vsb),
-		    sl->hd_len, sl->hd_start);
-		assert(s == sl->hd_len);
+	if (i > 0) {
+		/* Add padding header */
+		assert(i >= 5);
+		char *p = malloc(i);
+		AN(p);
+		memset(p, '_', i - 1);
+		p[i - 1] = '\0';
+		Header_Set(sl->hd, PADDING_HEADER, "%s", p + 4);
+		REPLACE(p, NULL);
 
 		VSB_delete(vsb);
-
-		IDX_Insert(aa, sl->warcinfo_id, IDX_F_WARCINFO,
-		    sl->silo_no, 0, NULL);
-		if (segd) {
-			sl->idx |= IDX_F_SEGMENTED;
-			t = Header_Get(sl->hd, "WARC-Segment-Number");
-			AN(t);
-			if (!strcmp(t, "1"))
-				sl->idx |= IDX_F_FIRSTSEG;
-			if (rid == NULL)
-				sl->idx |= IDX_F_LASTSEG;
-		}
-		IDX_Insert(aa, id, sl->idx, sl->silo_no, sl->hd_start, rid);
-
-		/*
-		 * We don't use rename(2) because it wouldn't fail if the
-		 * destination silo already exists.
-		 */
-		AZ(link(VSB_data(sl->hold_fn), VSB_data(sl->silo_fn)));
-		if (sl->silo_no == aa->cache_first_non_silo) {
-			aa->cache_first_non_silo++;
-			AardWARC_WriteCache(aa);
-		}
-
+		vsb = Header_Serialize(sl->hd, 0);
 	}
+	assert(VSB_len(vsb) == sl->hd_len);
 
-	wsilo_delete(sl);
+	s = pwrite(sl->hold_fd, VSB_data(vsb),
+	    sl->hd_len, sl->hd_start);
+	assert(s == sl->hd_len);
+
+	VSB_delete(vsb);
+
+	if (segd) {
+		sl->idx |= IDX_F_SEGMENTED;
+		t = Header_Get(sl->hd, "WARC-Segment-Number");
+		AN(t);
+		if (!strcmp(t, "1"))
+			sl->idx |= IDX_F_FIRSTSEG;
+		if (rid == NULL)
+			sl->idx |= IDX_F_LASTSEG;
+	}
+	IDX_Insert(aa, id, sl->idx, sl->silo_no, sl->hd_start, rid);
+	Wsilo_Install(&sl);
 }
 
 void
