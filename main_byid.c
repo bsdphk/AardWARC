@@ -49,6 +49,13 @@ usage_byid(const char *a0, const char *a00, const char *err)
 	    a0, a00);
 }
 
+struct privs {
+	unsigned		magic;
+#define PRIVS_MAGIC		0x37ea975a
+	struct aardwarc *aa;
+	int		retval;
+};
+
 static int v_matchproto_(idx_iter_f)
 byid_iter(void *priv, const char *key,
     uint32_t flag, uint32_t silo, int64_t offset, const char *cont)
@@ -56,13 +63,14 @@ byid_iter(void *priv, const char *key,
 	struct rsilo *rs;
 	struct header *hdr;
 	const char *p;
+	struct privs *pp;
 
-	(void)priv;
+	CAST_OBJ_NOTNULL(pp, priv, PRIVS_MAGIC);
 	(void)key;
 	(void)flag;
 	(void)cont;
 	// printf("%s 0x%08x %8u %12ju %s\n", key, flag, silo, offset, cont);
-	rs = Rsilo_Open(priv, NULL, silo, offset);
+	rs = Rsilo_Open(pp->aa, NULL, silo, offset);
 	AN(rs);
 	hdr = Rsilo_ReadHeader(rs);
 	AN(hdr);
@@ -73,6 +81,7 @@ byid_iter(void *priv, const char *key,
 	printf("\n");
 	Header_Destroy(&hdr);
 	Rsilo_Close(&rs);
+	pp->retval++;
 	return(0);
 }
 
@@ -82,8 +91,11 @@ main_byid(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	int ch;
 	const char *a00 = *argv;
 	const char *nid;
+	struct privs privs[1];
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
+	INIT_OBJ(privs, PRIVS_MAGIC);
+	privs->aa = aa;
 
 	while ((ch = getopt(argc, argv, "h")) != -1) {
 		switch (ch) {
@@ -106,7 +118,7 @@ main_byid(const char *a0, struct aardwarc *aa, int argc, char **argv)
 			fprintf(stderr, "Invalid ID-fragment\n");
 			exit(1);
 		}
-		(void)IDX_Iter(aa, nid, byid_iter, aa);
+		(void)IDX_Iter(aa, nid, byid_iter, privs);
 	}
-	return (0);
+	return (privs->retval < 256 ? privs->retval : 255);
 }
