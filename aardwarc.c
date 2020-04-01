@@ -100,7 +100,7 @@ AardWARC_New(const char *config_file, struct vsb *err)
 		aa->silo_dirname = p;
 		if (aa->silo_dirname[strlen(aa->silo_dirname) - 1] != '/') {
 			VSB_printf(err,
-			    "'silo_dirname' must end in '/'\n");
+			    "'silo.directory' must end in '/'\n");
 			break;
 		}
 
