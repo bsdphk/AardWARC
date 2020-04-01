@@ -162,7 +162,7 @@ audit_final_pending(struct aardwarc *aa, struct vsb *err, struct audit *ap0,
 
 	(void)aa;
 
-	bprintf(buf, "%jd", ap0->sz);
+	bprintf(buf, "%jd", (intmax_t)ap0->sz);
 	audit_check_header(err, apn, "WARC-Segment-Total-Length", buf);
 
 	(void)SHA256_End(ap0->sha256, dig);

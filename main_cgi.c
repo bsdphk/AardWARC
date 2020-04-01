@@ -157,7 +157,7 @@ main_cgi(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		printf("Content-Encoding: gzip\n");
 
 	o = GetJob_TotalLength(gj, gzip);
-	printf("Content-Length: %zd\n", o);
+	printf("Content-Length: %jd\n", (intmax_t)o);
 	printf("Status: 200\n");
 	printf("\n");
 
