@@ -162,12 +162,14 @@ Gzip_Vsb(struct vsb **vsbp, int level)
 	AN(input);
 
 	memset(zs, 0, sizeof zs);
-	i = deflateInit2(zs,
-	     level,
-	     Z_DEFLATED,
-	     16 + 15,
-	     9,
-	     Z_DEFAULT_STRATEGY);
+	i = deflateInit2(
+	    zs,
+	    level,
+	    Z_DEFLATED,
+	    16 + 15,
+	    8,
+	    Z_DEFAULT_STRATEGY
+	);
 	assert(i == Z_OK);
 	Gzip_AddAa(zs);
 
