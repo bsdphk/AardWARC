@@ -47,6 +47,8 @@ usage_byid(const char *a0, const char *a00, const char *err)
 	fprintf(stderr, "Usage for this operation:\n");
 	fprintf(stderr, "\t%s [global options] %s [options] [silo]...\n",
 	    a0, a00);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "\t[-e]\tAlways exit zero\n");
 }
 
 struct privs {
@@ -92,16 +94,20 @@ main_byid(const char *a0, struct aardwarc *aa, int argc, char **argv)
 	const char *a00 = *argv;
 	const char *nid;
 	struct privs privs[1];
+	int ok = 0;
 
 	CHECK_OBJ_NOTNULL(aa, AARDWARC_MAGIC);
 	INIT_OBJ(privs, PRIVS_MAGIC);
 	privs->aa = aa;
 
-	while ((ch = getopt(argc, argv, "h")) != -1) {
+	while ((ch = getopt(argc, argv, "he")) != -1) {
 		switch (ch) {
 		case 'h':
 			usage_byid(a0, a00, NULL);
 			exit(1);
+		case 'e':
+			ok = 1;
+			break;
 		default:
 			usage_byid(a0, a00, "Unknown option error.");
 			exit(1);
@@ -120,5 +126,7 @@ main_byid(const char *a0, struct aardwarc *aa, int argc, char **argv)
 		}
 		(void)IDX_Iter(aa, nid, byid_iter, privs);
 	}
+	if (ok)
+		return(0);
 	return (privs->retval < 256 ? privs->retval : 255);
 }
