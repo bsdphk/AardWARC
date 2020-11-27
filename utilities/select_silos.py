@@ -144,11 +144,20 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.backends import default_backend
 
-STAGING = "/var/BackupStaging/Bitstore"
 
-SILODIR = "/bitstore/BitStore"
+STAGING = os.environ.get("AA_STAGING")
+if not STAGING:
+    STAGING = "/tmp/BackupStaging"       # Where to stage the encrypted files
 
-QUOTA = 10 << 30                             # Max daily download quota in bytes
+SILODIR = os.environ.get("AA_SILODIR")
+if not SILODIR:
+    SILODIR = "/bitstore/BitStore"       # Where the *.warc.gz files live
+
+QUOTA = os.environ.get("AA_QUOTA")
+if not QUOTA:
+    QUOTA = 10 << 30                     # Max daily download quota in bytes
+else:
+    QUOTA = int(QUOTA)
 
 SILODATES = "silodates.txt"
 
