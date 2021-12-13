@@ -337,6 +337,7 @@ silo_attempt_append(const struct wsilo *sl, uint32_t silono,
 	struct iovec iov[2];
 	ssize_t s;
 	size_t wlen;
+	off_t before, after;
 	int ps = getpagesize();
 	int retval = 0;
 	off_t ax;
@@ -426,9 +427,14 @@ silo_attempt_append(const struct wsilo *sl, uint32_t silono,
 		iov[1].iov_len = sl->hold_len - (sl->hd_start + sl->hd_len);
 
 		wlen = iov[0].iov_len + iov[1].iov_len;
+
+		before = lseek(fds, 0, SEEK_END);
 		s = writev(fds, iov, 2);
+		after = lseek(fds, 0, SEEK_END);
 		assert(s >= 0);
 		assert((size_t)s == wlen);
+		assert((off_t)s == (after - before));
+
 		AZ(munmap(p, roundup(sl->hold_len, ps)));
 		// fprintf(stderr, "DEBUG: Wsilo_Append(%u) %ju\n", silono, need);
 
