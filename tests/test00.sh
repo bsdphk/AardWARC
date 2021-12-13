@@ -18,11 +18,13 @@ do
 	# Store the file
 	cp $i _1
 	${AXEC} store -t resource -m application/octet-stream _1 > _2
+	${AXEC} audit
 
 	# Store the metadata
 	ls -l $i > _1m
 	sha256 $i >> _1m
 	${AXEC} store -t metadata -m text/plain -r `cat _2` _1m > _2m
+	${AXEC} audit
 
 	# Get them both back again
 	${AXEC} get -o _3 `cat _2` > _4
