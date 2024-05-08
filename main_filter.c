@@ -138,7 +138,7 @@ filter_iter(void *priv, const char *key,
 static int
 read_file(const struct aardwarc *aa, FILE *fi)
 {
-	char buf[1024], *p;
+	char buf[BUFSIZ], *p;
 	struct cand *c1, *c2;
 	int retval = 0;
 	size_t sl;
