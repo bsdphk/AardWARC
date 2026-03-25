@@ -1,3 +1,7 @@
+# AardWARC has moved
+
+New home: https://codeberg.org/Datamuseum-dk/AardWARC
+
 # AardWARC
 
 ## Museum-quality bit-archive storage management
